@@ -167,7 +167,7 @@ public class LocalDataTransferServer extends Configured implements Tool
       try {
         listener = ServerSocketChannel.open();
         listener.bind(new InetSocketAddress(port), Integer.MAX_VALUE);
-        log.info("Started LocalDataTransferServer on port " + port);
+        log.info("OSS: Started LocalDataTransferServer on port " + port);
         while (true) {
           SocketChannel clientSocket = listener.accept();
           ClientServiceThread cliThread = new ClientServiceThread(clientSocket, conf, bookKeeperFactory);

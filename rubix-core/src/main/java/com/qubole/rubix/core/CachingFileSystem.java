@@ -89,7 +89,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
     try {
       this.fs = getTypeParameterClass().newInstance();
       if (bookKeeperFactory == null) {
-        bookKeeperFactory = new BookKeeperFactory();
+        bookKeeperFactory = new BookKeeperFactory(this.getConf());
       }
     }
     catch (InstantiationException | IllegalAccessException e) {

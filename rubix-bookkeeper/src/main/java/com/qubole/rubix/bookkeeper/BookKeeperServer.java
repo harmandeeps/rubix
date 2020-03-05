@@ -143,7 +143,7 @@ public class BookKeeperServer extends Configured implements Tool
   private void startThriftServer(Configuration conf, BookKeeper bookKeeper)
   {
     processor = new BookKeeperService.Processor(bookKeeper);
-    log.info("Starting BookKeeperServer on port " + getBookKeeperServerPort(conf));
+    log.info("OSS: Starting BookKeeperServer on port " + getBookKeeperServerPort(conf));
     try {
       TServerTransport serverTransport = new TServerSocket(
               new TServerSocket.ServerSocketTransportArgs().bindAddr(new InetSocketAddress(getBookKeeperServerPort(conf))).backlog(Integer.MAX_VALUE));

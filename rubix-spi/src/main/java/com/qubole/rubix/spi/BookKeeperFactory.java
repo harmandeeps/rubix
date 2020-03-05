@@ -12,6 +12,10 @@
  */
 package com.qubole.rubix.spi;
 
+import com.qubole.rubix.spi.fop.ObjectFactory;
+import com.qubole.rubix.spi.fop.ObjectPool;
+import com.qubole.rubix.spi.fop.PoolConfig;
+import com.qubole.rubix.spi.fop.Poolable;
 import com.qubole.rubix.spi.thrift.BookKeeperService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -20,6 +24,8 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Created by sakshia on 5/10/16.
  */
@@ -27,9 +33,48 @@ public class BookKeeperFactory
 {
   BookKeeperService.Iface bookKeeper;
   private static Log log = LogFactory.getLog(BookKeeperFactory.class.getName());
+  private static final AtomicInteger count = new AtomicInteger();
+  private PoolConfig poolConfig;
+  private ObjectFactory<TTransport> factory;
+  ObjectPool pool;
 
   public BookKeeperFactory()
   {
+  }
+
+  public BookKeeperFactory(final Configuration conf)
+  {
+    this.poolConfig = new PoolConfig();
+    poolConfig.setPartitionSize(10);
+    poolConfig.setMaxSize(10000);
+    poolConfig.setMinSize(50);
+    poolConfig.setMaxIdleMilliseconds(60 * 1000 * 5);
+    final int socketTimeout = 6000;
+    final int connectTimeout = 1000;
+
+    this.factory = new ObjectFactory<TTransport>() {
+      @Override public TTransport create()
+      {
+        TTransport transport = new TSocket("localhost", 8899, socketTimeout, connectTimeout); // create your object here
+        try {
+          transport.open();
+        }
+        catch (TTransportException e) {
+          e.printStackTrace();
+        }
+        return transport;
+      }
+      @Override public void destroy(TTransport o)
+      {
+        // clean up and release resources
+        o.close();
+      }
+      @Override public boolean validate(TTransport o)
+      {
+        return o.isOpen(); // validate your object here
+      }
+    };
+    pool = new ObjectPool(poolConfig, factory);
   }
 
   public BookKeeperFactory(BookKeeperService.Iface bookKeeper)
@@ -56,7 +101,7 @@ public class BookKeeperFactory
   }
 
   public RetryingBookkeeperClient createBookKeeperClient(String host, Configuration conf, int maxRetries,
-                                                         long retryInterval, boolean throwException)
+          long retryInterval, boolean throwException)
   {
     for (int failedStarts = 1; failedStarts <= maxRetries; failedStarts++) {
       try {
@@ -88,6 +133,11 @@ public class BookKeeperFactory
 
   public RetryingBookkeeperClient createBookKeeperClient(Configuration conf) throws TTransportException
   {
-    return createBookKeeperClient("localhost", conf);
+    if (bookKeeper != null) {
+      return new LocalBookKeeperClient(null, bookKeeper);
+    }
+    try (Poolable<TTransport> obj = pool.borrowObject()) {
+      return new RetryingBookkeeperClient(obj.getObject(), CacheConfig.getMaxRetries(conf));
+    }
   }
 }
