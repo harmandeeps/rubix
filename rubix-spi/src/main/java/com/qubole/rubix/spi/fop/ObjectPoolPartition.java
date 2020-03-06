@@ -14,16 +14,20 @@ public class ObjectPoolPartition<T> {
     private final BlockingQueue<Poolable<T>> objectQueue;
     private final ObjectFactory<T> objectFactory;
     private int totalCount;
+    private String host;
+    private int socketTimeout;
+    private int connectTimeout;
 
     public ObjectPoolPartition(ObjectPool<T> pool, int partition, PoolConfig config,
-                               ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue) {
+                               ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, int socketTimeout, int connectTimeout) {
         this.pool = pool;
         this.config = config;
         this.objectFactory = objectFactory;
         this.partition = partition;
         this.objectQueue = queue;
+        this.host = host;
         for (int i = 0; i < config.getMinSize(); i++) {
-            objectQueue.add(new Poolable<>(objectFactory.create(), pool, partition));
+            objectQueue.add(new Poolable<>(objectFactory.create(host, socketTimeout, connectTimeout), pool, partition));
         }
         totalCount = config.getMinSize();
     }
@@ -38,7 +42,7 @@ public class ObjectPoolPartition<T> {
         }
         try {
             for (int i = 0; i < delta; i++) {
-                objectQueue.put(new Poolable<>(objectFactory.create(), pool, partition));
+                objectQueue.put(new Poolable<>(objectFactory.create(host, socketTimeout, connectTimeout), pool, partition));
             }
             totalCount += delta;
             if (Log.isDebug())

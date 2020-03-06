@@ -66,6 +66,7 @@ public class BookKeeperServer extends Configured implements Tool
 
   public static void main(String[] args) throws Exception
   {
+    Thread.sleep(5000);
     ToolRunner.run(new Configuration(), new BookKeeperServer(), args);
   }
 

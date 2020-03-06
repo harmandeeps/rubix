@@ -5,7 +5,7 @@ package com.qubole.rubix.spi.fop;
  */
 public interface ObjectFactory<T> {
 
-    T create();
+    T create(String host, int socketTimeout, int connectTimeout);
 
     void destroy(T t);
 

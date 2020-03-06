@@ -24,6 +24,7 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -34,28 +35,26 @@ public class BookKeeperFactory
   BookKeeperService.Iface bookKeeper;
   private static Log log = LogFactory.getLog(BookKeeperFactory.class.getName());
   private static final AtomicInteger count = new AtomicInteger();
-  private PoolConfig poolConfig;
-  private ObjectFactory<TTransport> factory;
-  ObjectPool pool;
+  private static PoolConfig poolConfig;
+  private static ConcurrentHashMap<String, Integer> concurrentHashMap = new ConcurrentHashMap<>();
+  private static ObjectFactory<TTransport> factory;
+  private static ObjectPool pool;
 
   public BookKeeperFactory()
   {
-  }
-
-  public BookKeeperFactory(final Configuration conf)
-  {
     this.poolConfig = new PoolConfig();
     poolConfig.setPartitionSize(10);
-    poolConfig.setMaxSize(10000);
-    poolConfig.setMinSize(50);
+    poolConfig.setMaxSize(20000);
+    poolConfig.setMinSize(1000);
     poolConfig.setMaxIdleMilliseconds(60 * 1000 * 5);
-    final int socketTimeout = 6000;
-    final int connectTimeout = 1000;
+    final int socketTimeout = 60000;
+    final int connectTimeout = 10000;
 
     this.factory = new ObjectFactory<TTransport>() {
-      @Override public TTransport create()
+      @Override public TTransport create(String host, int socketTimeout, int connectTimeout)
       {
-        TTransport transport = new TSocket("localhost", 8899, socketTimeout, connectTimeout); // create your object here
+        log.info("aaa: opening connection on host: " + host);
+        TSocket transport = new TSocket(host, 8899, socketTimeout, connectTimeout); // create your object here
         try {
           transport.open();
         }
@@ -71,7 +70,9 @@ public class BookKeeperFactory
       }
       @Override public boolean validate(TTransport o)
       {
-        return o.isOpen(); // validate your object here
+        boolean isValid = o.isOpen();
+        log.info("aaa: validating: " + isValid);
+        return isValid; // validate your object here
       }
     };
     pool = new ObjectPool(poolConfig, factory);
@@ -79,6 +80,7 @@ public class BookKeeperFactory
 
   public BookKeeperFactory(BookKeeperService.Iface bookKeeper)
   {
+    this();
     if (bookKeeper != null) {
       this.bookKeeper = bookKeeper;
     }
@@ -90,13 +92,19 @@ public class BookKeeperFactory
       return new LocalBookKeeperClient(null, bookKeeper);
     }
     else {
-      final int socketTimeout = CacheConfig.getServerSocketTimeout(conf);
-      final int connectTimeout = CacheConfig.getServerConnectTimeout(conf);
+      if (!concurrentHashMap.containsKey(host)) {
+        final int socketTimeout = CacheConfig.getServerSocketTimeout(conf);
+        final int connectTimeout = CacheConfig.getServerConnectTimeout(conf);
+        log.info("aaa: host: " + host + " not in map, registering host: " + host);
+        concurrentHashMap.put(host, count.getAndAdd(1));
+        pool.registerHost(host, socketTimeout,  connectTimeout, concurrentHashMap.get(host));
+      }
 
-      TTransport transport = new TSocket(host, CacheConfig.getBookKeeperServerPort(conf), socketTimeout, connectTimeout);
-      transport.open();
-      RetryingBookkeeperClient retryingBookkeeperClient = new RetryingBookkeeperClient(transport, CacheConfig.getMaxRetries(conf));
-      return retryingBookkeeperClient;
+      try (Poolable<TTransport> obj = pool.borrowObject(concurrentHashMap.get(host))) {
+        TTransport transport = obj.getObject();
+        RetryingBookkeeperClient retryingBookkeeperClient = new RetryingBookkeeperClient(transport, CacheConfig.getMaxRetries(conf));
+        return retryingBookkeeperClient;
+      }
     }
   }
 
@@ -133,11 +141,6 @@ public class BookKeeperFactory
 
   public RetryingBookkeeperClient createBookKeeperClient(Configuration conf) throws TTransportException
   {
-    if (bookKeeper != null) {
-      return new LocalBookKeeperClient(null, bookKeeper);
-    }
-    try (Poolable<TTransport> obj = pool.borrowObject()) {
-      return new RetryingBookkeeperClient(obj.getObject(), CacheConfig.getMaxRetries(conf));
-    }
+    return createBookKeeperClient("localhost", conf);
   }
 }

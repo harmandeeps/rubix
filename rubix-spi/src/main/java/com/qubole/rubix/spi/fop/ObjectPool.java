@@ -1,5 +1,7 @@
 package com.qubole.rubix.spi.fop;
 
+import org.apache.commons.logging.LogFactory;
+
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -8,6 +10,8 @@ import java.util.concurrent.TimeUnit;
  * @author Daniel
  */
 public class ObjectPool<T> {
+
+    private static org.apache.commons.logging.Log log = LogFactory.getLog(ObjectPool.class.getName());
 
     private final PoolConfig config;
     private final ObjectFactory<T> factory;
@@ -19,26 +23,28 @@ public class ObjectPool<T> {
         this.config = poolConfig;
         this.factory = objectFactory;
         this.partitions = new ObjectPoolPartition[config.getPartitionSize()];
-        for (int i = 0; i < config.getPartitionSize(); i++) {
-            partitions[i] = new ObjectPoolPartition<>(this, i, config, objectFactory, createBlockingQueue(poolConfig));
-        }
         if (config.getScavengeIntervalMilliseconds() > 0) {
             this.scavenger = new Scavenger();
             this.scavenger.start();
         }
     }
 
+    public void registerHost(String host, int socketTimeout, int connectTimeout, int index) {
+            partitions[index] = new ObjectPoolPartition<>(this, index, config, factory, createBlockingQueue(config), host, socketTimeout, connectTimeout);
+    }
+
     protected BlockingQueue<Poolable<T>> createBlockingQueue(PoolConfig poolConfig) {
         return new ArrayBlockingQueue<>(poolConfig.getMaxSize());
     }
 
-    public Poolable<T> borrowObject() {
-        return borrowObject(true);
+    public Poolable<T> borrowObject(int partitionNumber) {
+        return borrowObject(true, partitionNumber);
     }
 
-    public Poolable<T> borrowObject(boolean blocking) {
+    public Poolable<T> borrowObject(boolean blocking, int partitionNumber) {
+        log.info("aaa: borrowObject: Partition: " + partitionNumber);
         for (int i = 0; i < 3; i++) { // try at most three times
-            Poolable<T> result = getObject(blocking);
+            Poolable<T> result = getObject(blocking, partitionNumber);
             if (factory.validate(result.getObject())) {
                 return result;
             } else {
@@ -48,11 +54,11 @@ public class ObjectPool<T> {
         throw new RuntimeException("Cannot find a valid object");
     }
 
-    private Poolable<T> getObject(boolean blocking) {
+    private Poolable<T> getObject(boolean blocking, int partitionNumber) {
         if (shuttingDown) {
             throw new IllegalStateException("Your pool is shutting down");
         }
-        int partition = (int) (Thread.currentThread().getId() % this.config.getPartitionSize());
+        int partition = partitionNumber % this.config.getPartitionSize();
         ObjectPoolPartition<T> subPool = this.partitions[partition];
         Poolable<T> freeObject = subPool.getObjectQueue().poll();
         if (freeObject == null) {
