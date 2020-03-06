@@ -1,5 +1,6 @@
 package com.qubole.rubix.spi.fop;
 
+import java.net.SocketException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -53,7 +54,9 @@ public class ObjectPoolPartition<T> {
         return delta;
     }
 
-    public synchronized boolean decreaseObject(Poolable<T> obj) {
+    public synchronized boolean decreaseObject(Poolable<T> obj)
+            throws SocketException
+    {
         objectFactory.destroy(obj.getObject());
         totalCount--;
         return true;
@@ -64,7 +67,9 @@ public class ObjectPoolPartition<T> {
     }
 
     // set the scavenge interval carefully
-    public synchronized void scavenge() throws InterruptedException {
+    public synchronized void scavenge()
+            throws InterruptedException, SocketException
+    {
         int delta = this.totalCount - config.getMinSize();
         if (delta <= 0) return;
         int removed = 0;
@@ -92,7 +97,12 @@ public class ObjectPoolPartition<T> {
         while (this.totalCount > 0) {
             Poolable<T> obj = objectQueue.poll();
             if (obj != null) {
-                decreaseObject(obj);
+                try {
+                    decreaseObject(obj);
+                }
+                catch (SocketException e) {
+                    e.printStackTrace();
+                }
                 removed++;
             }
         }

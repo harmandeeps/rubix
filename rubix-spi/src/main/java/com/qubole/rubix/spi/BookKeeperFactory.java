@@ -24,6 +24,7 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import java.net.SocketException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,7 +38,7 @@ public class BookKeeperFactory
   private static final AtomicInteger count = new AtomicInteger();
   private static PoolConfig poolConfig;
   private static ConcurrentHashMap<String, Integer> concurrentHashMap = new ConcurrentHashMap<>();
-  private static ObjectFactory<TTransport> factory;
+  private static ObjectFactory<TSocket> factory;
   private static ObjectPool pool;
 
   public BookKeeperFactory()
@@ -50,8 +51,8 @@ public class BookKeeperFactory
     final int socketTimeout = 60000;
     final int connectTimeout = 10000;
 
-    this.factory = new ObjectFactory<TTransport>() {
-      @Override public TTransport create(String host, int socketTimeout, int connectTimeout)
+    this.factory = new ObjectFactory<TSocket>() {
+      @Override public TSocket create(String host, int socketTimeout, int connectTimeout)
       {
         log.info("aaa: opening connection on host: " + host);
         TSocket transport = new TSocket(host, 8899, socketTimeout, connectTimeout); // create your object here
@@ -63,16 +64,18 @@ public class BookKeeperFactory
         }
         return transport;
       }
-      @Override public void destroy(TTransport o)
+      @Override public void destroy(TSocket o)
+              throws SocketException
       {
         // clean up and release resources
+        o.getSocket().setReuseAddress(true);
         o.close();
       }
-      @Override public boolean validate(TTransport o)
+      @Override public boolean validate(TSocket o)
       {
-        boolean isValid = o.isOpen();
+        boolean isValid = o.getSocket().isClosed();
         log.info("aaa: validating: " + isValid);
-        return isValid; // validate your object here
+        return !isValid; // validate your object here
       }
     };
     pool = new ObjectPool(poolConfig, factory);
@@ -95,7 +98,7 @@ public class BookKeeperFactory
       if (!concurrentHashMap.containsKey(host)) {
         final int socketTimeout = CacheConfig.getServerSocketTimeout(conf);
         final int connectTimeout = CacheConfig.getServerConnectTimeout(conf);
-        log.info("aaa: host: " + host + " not in map, registering host: " + host);
+        log.info("aaa: host: " + host + " not in map, registering host: " + host + " count: " + count.get());
         concurrentHashMap.put(host, count.getAndAdd(1));
         pool.registerHost(host, socketTimeout,  connectTimeout, concurrentHashMap.get(host));
       }
@@ -104,6 +107,10 @@ public class BookKeeperFactory
         TTransport transport = obj.getObject();
         RetryingBookkeeperClient retryingBookkeeperClient = new RetryingBookkeeperClient(transport, CacheConfig.getMaxRetries(conf));
         return retryingBookkeeperClient;
+      }
+      catch (SocketException e) {
+        e.printStackTrace();
+        return null;
       }
     }
   }

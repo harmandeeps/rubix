@@ -1,7 +1,9 @@
 package com.qubole.rubix.spi.fop;
 
 import org.apache.commons.logging.LogFactory;
+import org.apache.thrift.transport.TSocket;
 
+import java.net.SocketException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -37,15 +39,20 @@ public class ObjectPool<T> {
         return new ArrayBlockingQueue<>(poolConfig.getMaxSize());
     }
 
-    public Poolable<T> borrowObject(int partitionNumber) {
+    public Poolable<T> borrowObject(int partitionNumber)
+            throws SocketException
+    {
         return borrowObject(true, partitionNumber);
     }
 
-    public Poolable<T> borrowObject(boolean blocking, int partitionNumber) {
+    public Poolable<T> borrowObject(boolean blocking, int partitionNumber)
+            throws SocketException
+    {
         log.info("aaa: borrowObject: Partition: " + partitionNumber);
         for (int i = 0; i < 3; i++) { // try at most three times
             Poolable<T> result = getObject(blocking, partitionNumber);
             if (factory.validate(result.getObject())) {
+                ((TSocket)result.getObject()).getSocket().setSoTimeout(600000);
                 return result;
             } else {
                 this.partitions[result.getPartition()].decreaseObject(result);
@@ -126,6 +133,9 @@ public class ObjectPool<T> {
                     Log.debug("scavenge sub pool ",  partition);
                     partitions[partition].scavenge();
                 } catch (InterruptedException ignored) {
+                }
+                catch (SocketException e) {
+                    e.printStackTrace();
                 }
             }
         }

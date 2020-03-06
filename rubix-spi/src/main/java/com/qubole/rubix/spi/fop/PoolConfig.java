@@ -10,7 +10,7 @@ public class PoolConfig {
     private int minSize = 5;
     private int maxSize = 20;
     private int partitionSize = 4;
-    private int scavengeIntervalMilliseconds = 1000 * 60 * 2;
+    private int scavengeIntervalMilliseconds = 0; //1000 * 60 * 2;
     private double scavengeRatio = 0.5; // to avoid to clean up all connections in the pool at the same time
 
     public int getMaxWaitMilliseconds() {
