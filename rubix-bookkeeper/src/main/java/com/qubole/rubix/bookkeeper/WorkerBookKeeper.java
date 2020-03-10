@@ -121,10 +121,10 @@ public class WorkerBookKeeper extends BookKeeper
     try {
       nodeHostName = InetAddress.getLocalHost().getCanonicalHostName();
       nodeHostAddress = InetAddress.getLocalHost().getHostAddress();
-      log.debug(" HostName : " + nodeHostName + " HostAddress : " + nodeHostAddress);
+      log.info(" HostName : " + nodeHostName + " HostAddress : " + nodeHostAddress);
     }
     catch (UnknownHostException e) {
-      log.warn("Could not get nodeName", e);
+      log.info("Could not get nodeName", e);
       throw new WorkerInitializationException("Could not get NodeName ", e);
     }
 
@@ -176,10 +176,10 @@ public class WorkerBookKeeper extends BookKeeper
               return client.getClusterNodes();
             }
             catch (Exception e) {
-              client.close();
               throw e;
             }
             finally {
+              bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
               client = null;
             }
           }

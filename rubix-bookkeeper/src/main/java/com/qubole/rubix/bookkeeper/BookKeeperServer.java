@@ -66,7 +66,6 @@ public class BookKeeperServer extends Configured implements Tool
 
   public static void main(String[] args) throws Exception
   {
-    Thread.sleep(5000);
     ToolRunner.run(new Configuration(), new BookKeeperServer(), args);
   }
 
@@ -144,6 +143,7 @@ public class BookKeeperServer extends Configured implements Tool
   private void startThriftServer(Configuration conf, BookKeeper bookKeeper)
   {
     processor = new BookKeeperService.Processor(bookKeeper);
+    log.info("OSS: " + Thread.currentThread().getName());
     log.info("OSS: Starting BookKeeperServer on port " + getBookKeeperServerPort(conf));
     try {
       TServerTransport serverTransport = new TServerSocket(

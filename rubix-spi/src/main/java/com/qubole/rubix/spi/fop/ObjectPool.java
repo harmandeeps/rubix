@@ -52,7 +52,6 @@ public class ObjectPool<T> {
         for (int i = 0; i < 3; i++) { // try at most three times
             Poolable<T> result = getObject(blocking, partitionNumber);
             if (factory.validate(result.getObject())) {
-                ((TSocket)result.getObject()).getSocket().setSoTimeout(600000);
                 return result;
             } else {
                 this.partitions[result.getPartition()].decreaseObject(result);
@@ -67,12 +66,17 @@ public class ObjectPool<T> {
         }
         int partition = partitionNumber % this.config.getPartitionSize();
         ObjectPoolPartition<T> subPool = this.partitions[partition];
+        log.info("aaa: getObject: partition: " + partition);
+        if (subPool == null) {
+            log.info("aaa: subPool is null for partition: " + partition);
+        }
         Poolable<T> freeObject = subPool.getObjectQueue().poll();
         if (freeObject == null) {
             // increase objects and return one, it will return null if reach max size
             subPool.increaseObjects(1);
             try {
                 if (blocking) {
+                    log.info("aaa: in blocking mode, waiting.....");
                     freeObject = subPool.getObjectQueue().take();
                 } else {
                     freeObject = subPool.getObjectQueue().poll(config.getMaxWaitMilliseconds(), TimeUnit.MILLISECONDS);

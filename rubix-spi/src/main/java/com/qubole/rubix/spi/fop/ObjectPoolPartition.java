@@ -46,8 +46,7 @@ public class ObjectPoolPartition<T> {
                 objectQueue.put(new Poolable<>(objectFactory.create(host, socketTimeout, connectTimeout), pool, partition));
             }
             totalCount += delta;
-            if (Log.isDebug())
-                Log.debug("increase objects: count=", totalCount, ", queue size=", objectQueue.size());
+            Log.info("increase objects: count=", totalCount, ", queue size=", objectQueue.size());
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -55,8 +54,8 @@ public class ObjectPoolPartition<T> {
     }
 
     public synchronized boolean decreaseObject(Poolable<T> obj)
-            throws SocketException
     {
+        Log.info("decrease objects: count=", totalCount, ", queue size=", objectQueue.size());
         objectFactory.destroy(obj.getObject());
         totalCount--;
         return true;
@@ -97,12 +96,7 @@ public class ObjectPoolPartition<T> {
         while (this.totalCount > 0) {
             Poolable<T> obj = objectQueue.poll();
             if (obj != null) {
-                try {
-                    decreaseObject(obj);
-                }
-                catch (SocketException e) {
-                    e.printStackTrace();
-                }
+                decreaseObject(obj);
                 removed++;
             }
         }

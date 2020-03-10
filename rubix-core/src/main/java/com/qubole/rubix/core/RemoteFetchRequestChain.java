@@ -72,14 +72,8 @@ public class RemoteFetchRequestChain extends ReadRequestChain
       throw e;
     }
     finally {
-      try {
-        if (client != null) {
-          client.close();
-          client = null;
-        }
-      }
-      catch (IOException ex) {
-        log.error("Could not close bookkeeper client. Exception: ", ex);
+      if (client != null) {
+        bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
       }
     }
     log.debug("Send request to remote took " + (System.currentTimeMillis() - startTime) + " :msecs");

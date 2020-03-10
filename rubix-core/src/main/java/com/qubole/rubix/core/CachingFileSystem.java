@@ -318,6 +318,9 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
             blockLocations[blockNumber++] = new BlockLocation(name, host, i, end - i);
             log.debug(String.format("BlockLocation %s %d %d %s ", file.getPath().toString(), i, end - i, host[0]));
           }
+          if (client!=null) {
+            bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
+          }
 
           return blockLocations;
         }

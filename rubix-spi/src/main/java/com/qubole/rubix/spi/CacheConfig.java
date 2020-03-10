@@ -105,8 +105,8 @@ public class CacheConfig
 
   // default values
   private static final int DEFAULT_BLOCK_SIZE = 1 * 1024 * 1024; // 1MB
-  private static final int DEFAULT_SERVER_CONNECT_TIMEOUT = 10000; // ms
-  private static final int DEFAULT_SERVER_SOCKET_TIMEOUT = 600000; // ms
+  private static final int DEFAULT_SERVER_CONNECT_TIMEOUT = 1000; // ms
+  private static final int DEFAULT_SERVER_SOCKET_TIMEOUT = 6000; // ms
   private static final String DEFAULT_CACHE_METADATA_FILE_SUFFIX = "_mdfile";
   private static final String DEFAULT_DATA_CACHE_DIR_PREFIX = "/media/ephemeral";
   private static final String DEFAULT_DATA_CACHE_DIR_SUFFIX = "/fcache/";

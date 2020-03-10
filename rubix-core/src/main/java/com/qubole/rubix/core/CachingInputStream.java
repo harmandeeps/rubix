@@ -152,7 +152,10 @@ public class CachingInputStream extends FSInputStream
         throw Throwables.propagate(e);
       }
       log.warn("Could not create BookKeeper Client " + Throwables.getStackTraceAsString(e));
-      bookKeeperClient = null;
+      if (bookKeeperClient!=null) {
+        bookKeeperFactory.returnBookKeeperClient(bookKeeperClient.getTransportPoolable());
+        bookKeeperClient = null;
+      }
     }
     this.blockSize = CacheConfig.getBlockSize(conf);
     this.diskReadBufferSize = CacheConfig.getDiskReadBufferSize(conf);
@@ -531,7 +534,7 @@ public class CachingInputStream extends FSInputStream
         inputStream.close();
       }
       if (bookKeeperClient != null) {
-        bookKeeperClient.close();
+        bookKeeperFactory.returnBookKeeperClient(bookKeeperClient.getTransportPoolable());
       }
     }
     catch (IOException e) {

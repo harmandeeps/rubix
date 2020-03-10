@@ -67,13 +67,8 @@ public class BookKeeperHealth extends Configured
       log.error("Bookkeeper is not responding", e);
     }
     finally {
-      try {
-        if (rclient != null) {
-          rclient.close();
-        }
-      }
-      catch (IOException e) {
-        log.error("Exception Thrown while closing thrift connection", e);
+      if (rclient != null) {
+        this.factory.returnBookKeeperClient(rclient.getTransportPoolable());
       }
     }
     return isBksAlive;

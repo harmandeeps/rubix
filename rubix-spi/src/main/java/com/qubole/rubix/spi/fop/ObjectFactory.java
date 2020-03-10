@@ -9,8 +9,7 @@ public interface ObjectFactory<T> {
 
     T create(String host, int socketTimeout, int connectTimeout);
 
-    void destroy(T t)
-            throws SocketException;
+    void destroy(T t);
 
     boolean validate(T t);
 
