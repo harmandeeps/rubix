@@ -106,13 +106,8 @@ public class RemoteFetchRequestChain extends ReadRequestChain
         log.error("Dummy Mode: Could not update Cache Status for Remote Fetch Request ", e);
       }
       finally {
-        try {
-          if (bookKeeperClient != null) {
-            bookKeeperClient.close();
-          }
-        }
-        catch (IOException ex) {
-          log.error("Dummy Mode: Could not close bookkeeper client. Exception: ", ex);
+        if (bookKeeperClient != null) {
+          bookKeeperFactory.returnBookKeeperClient(bookKeeperClient.getTransportPoolable());
         }
       }
     }

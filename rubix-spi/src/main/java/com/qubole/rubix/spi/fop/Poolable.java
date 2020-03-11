@@ -47,6 +47,7 @@ public class Poolable<T> implements AutoCloseable {
      */
     @Override
     public void close() {
+        Log.info("aaa: Poolable: close");
         this.returnObject();
     }
 }

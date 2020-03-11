@@ -295,11 +295,12 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
       else {
         // Using similar logic of returning all Blocks as FileSystem.getFileBlockLocations does instead of only returning blocks from start till len
 
+        RetryingBookkeeperClient client = null;
         try {
           BlockLocation[] blockLocations = new BlockLocation[(int) Math.ceil((double) file.getLen() / splitSize)];
           int blockNumber = 0;
 
-          RetryingBookkeeperClient client = bookKeeperFactory.createBookKeeperClient(conf);
+          client = bookKeeperFactory.createBookKeeperClient(conf);
 
           for (long i = 0; i < file.getLen(); i = i + splitSize) {
             long end = i + splitSize;
@@ -318,15 +319,17 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
             blockLocations[blockNumber++] = new BlockLocation(name, host, i, end - i);
             log.debug(String.format("BlockLocation %s %d %d %s ", file.getPath().toString(), i, end - i, host[0]));
           }
-          if (client!=null) {
-            bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
-          }
 
           return blockLocations;
         }
         catch (TException ex) {
           log.error("Error while getting Node HostName. Fallingback on RemoteFileSystem. ", ex);
           return fs.getFileBlockLocations(file, start, len);
+        }
+        finally {
+          if (client!=null) {
+            bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
+          }
         }
       }
     }

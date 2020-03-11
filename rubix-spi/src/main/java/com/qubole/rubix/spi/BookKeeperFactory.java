@@ -24,8 +24,10 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import java.io.IOException;
 import java.net.SocketException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -36,6 +38,7 @@ public class BookKeeperFactory
   BookKeeperService.Iface bookKeeper;
   private static Log log = LogFactory.getLog(BookKeeperFactory.class.getName());
   private static final AtomicInteger count = new AtomicInteger();
+  private static final AtomicBoolean flag = new AtomicBoolean();
   private static PoolConfig poolConfig;
   private static ConcurrentHashMap<String, Integer> concurrentHashMap = new ConcurrentHashMap<>();
   private static ObjectFactory<TSocket> factory;
@@ -45,8 +48,8 @@ public class BookKeeperFactory
   {
     this.poolConfig = new PoolConfig();
     poolConfig.setPartitionSize(10);
-    poolConfig.setMaxSize(20000);
-    poolConfig.setMinSize(1000);
+    poolConfig.setMaxSize(20);
+    poolConfig.setMinSize(5);
     poolConfig.setMaxIdleMilliseconds(60 * 1000 * 5);
     final int socketTimeout = 60000;
     final int connectTimeout = 10000;
@@ -57,17 +60,10 @@ public class BookKeeperFactory
         log.info("aaa: opening connection on host: " + host);
         TSocket socket = null;
         try {
-          socket = new TSocket(host, 8899); // create your object here
-          socket.setConnectTimeout(connectTimeout);
-          socket.getSocket().setTcpNoDelay(true);
-          socket.getSocket().setKeepAlive(true);
-          socket.getSocket().setSoLinger(true, 0);
+          socket = new TSocket(host, 8899, socketTimeout, connectTimeout); // create your object here
           socket.open();
         }
         catch (TTransportException e) {
-          e.printStackTrace();
-        }
-        catch (SocketException e) {
           e.printStackTrace();
         }
         return socket;
@@ -84,7 +80,20 @@ public class BookKeeperFactory
         return !isClosed; // validate your object here
       }
     };
-    pool = new ObjectPool(poolConfig, factory);
+
+    log.info("aaa: BookKeeperFactory constructor");
+    if (!flag.get())
+    synchronized (flag) {
+      if (!flag.get()) {
+        log.info("aaa: initializing pool");
+        pool = new ObjectPool(poolConfig, factory);
+        log.info("aaa: registering host: localhost count: " + count.get());
+        int index = count.getAndAdd(1);
+        pool.registerHost("localhost", socketTimeout, connectTimeout, index);
+        concurrentHashMap.put("localhost", index);
+        flag.set(true);
+      }
+    }
   }
 
   public BookKeeperFactory(BookKeeperService.Iface bookKeeper)
@@ -114,14 +123,17 @@ public class BookKeeperFactory
         }
       }
 
-      try (Poolable<TTransport> obj = pool.borrowObject(concurrentHashMap.get(host))) {
-        RetryingBookkeeperClient retryingBookkeeperClient = new RetryingBookkeeperClient(obj, CacheConfig.getMaxRetries(conf));
-        return retryingBookkeeperClient;
+      Poolable<TTransport> obj = null;
+      try {
+        obj = pool.borrowObject(concurrentHashMap.get(host));
       }
       catch (SocketException e) {
         e.printStackTrace();
-        return null;
+        throw new TTransportException();
       }
+      log.info("aaa: borrowing: " + obj.getObject());
+      RetryingBookkeeperClient retryingBookkeeperClient = new RetryingBookkeeperClient(obj, CacheConfig.getMaxRetries(conf));
+      return retryingBookkeeperClient;
     }
   }
 
@@ -163,6 +175,7 @@ public class BookKeeperFactory
 
   public void returnBookKeeperClient(Poolable<TTransport> obj) {
     try {
+      log.info("aaa: returning: " + obj.getObject());
       obj.getObject().flush();
     }
     catch (TTransportException e) {

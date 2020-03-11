@@ -70,8 +70,10 @@ public class ObjectPool<T> {
         if (subPool == null) {
             log.info("aaa: subPool is null for partition: " + partition);
         }
-        Poolable<T> freeObject = subPool.getObjectQueue().poll();
-        if (freeObject == null) {
+        log.info("aaa: before: subPool object queuer size after get obect: " + subPool.getObjectQueue().size());
+
+        Poolable<T> freeObject;
+        if (subPool.getObjectQueue().size() == 0) {
             // increase objects and return one, it will return null if reach max size
             subPool.increaseObjects(1);
             try {
@@ -87,7 +89,10 @@ public class ObjectPool<T> {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e); // will never happen
             }
+        } else {
+            freeObject = subPool.getObjectQueue().poll();
         }
+        log.info("aaa: after: subPool object queuer size after get obect: " + subPool.getObjectQueue().size() + " obj: " + freeObject.getObject());
         freeObject.setLastAccessTs(System.currentTimeMillis());
         return freeObject;
     }
@@ -95,10 +100,9 @@ public class ObjectPool<T> {
     public void returnObject(Poolable<T> obj) {
         ObjectPoolPartition<T> subPool = this.partitions[obj.getPartition()];
         try {
+            log.info("aaa: before: return object: queue size: " + subPool.getObjectQueue().size() + ", partition id: " + obj.getPartition() + " obj: "+ obj.getObject());
             subPool.getObjectQueue().put(obj);
-            if (Log.isDebug())
-                Log.debug("return object: queue size:", subPool.getObjectQueue().size(),
-                    ", partition id:", obj.getPartition());
+            log.info("aaa: after: return object: queue size:" + subPool.getObjectQueue().size() + ", partition id:" + obj.getPartition() + " obj: " + obj.getObject());
         } catch (InterruptedException e) {
             throw new RuntimeException(e); // impossible for now, unless there is a bug, e,g. borrow once but return twice.
         }
