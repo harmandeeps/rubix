@@ -44,9 +44,8 @@ public class BookKeeperFactory
   private static ObjectFactory<TSocket> factory;
   private static ObjectPool pool;
 
-  public BookKeeperFactory()
-  {
-    this.poolConfig = new PoolConfig();
+  static {
+    poolConfig = new PoolConfig();
     poolConfig.setPartitionSize(10);
     poolConfig.setMaxSize(200);
     poolConfig.setMinSize(100);
@@ -54,7 +53,7 @@ public class BookKeeperFactory
     final int socketTimeout = 60000;
     final int connectTimeout = 10000;
 
-    this.factory = new ObjectFactory<TSocket>() {
+    factory = new ObjectFactory<TSocket>() {
       @Override public TSocket create(String host, int socketTimeout, int connectTimeout)
       {
         log.info("aaa: opening connection on host: " + host);
@@ -83,22 +82,25 @@ public class BookKeeperFactory
 
     log.info("aaa: BookKeeperFactory constructor");
     if (!flag.get())
-    synchronized (flag) {
-      if (!flag.get()) {
-        log.info("aaa: initializing pool");
-        pool = new ObjectPool(poolConfig, factory);
-        log.info("aaa: registering host: localhost count: " + count.get());
-        int index = count.getAndAdd(1);
-        pool.registerHost("localhost", socketTimeout, connectTimeout, index);
-        concurrentHashMap.put("localhost", index);
-        flag.set(true);
+      synchronized (flag) {
+        if (!flag.get()) {
+          log.info("aaa: initializing pool");
+          pool = new ObjectPool(poolConfig, factory);
+          log.info("aaa: registering host: localhost count: " + count.get());
+          int index = count.getAndAdd(1);
+          pool.registerHost("localhost", socketTimeout, connectTimeout, index);
+          concurrentHashMap.put("localhost", index);
+          flag.set(true);
+        }
       }
-    }
+  }
+
+  public BookKeeperFactory()
+  {
   }
 
   public BookKeeperFactory(BookKeeperService.Iface bookKeeper)
   {
-    this();
     if (bookKeeper != null) {
       this.bookKeeper = bookKeeper;
     }
@@ -174,15 +176,7 @@ public class BookKeeperFactory
   }
 
   public void returnBookKeeperClient(Poolable<TTransport> obj) {
-    try {
-      log.info("aaa: returning: " + obj.getObject());
-      obj.getObject().flush();
-    }
-    catch (TTransportException e) {
-      e.printStackTrace();
-      return;
-    }
-    if (obj.getObject().isOpen()) {
+    if (obj != null && obj.getObject() != null && obj.getObject().isOpen()) {
       pool.returnObject(obj);
     }
   }

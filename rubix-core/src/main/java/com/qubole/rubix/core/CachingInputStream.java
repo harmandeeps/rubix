@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.DirectBufferPool;
-import org.apache.thrift.shaded.transport.TTransportException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -78,6 +77,7 @@ public class CachingInputStream extends FSInputStream
   private String localPath;
   private long lastModified;
 
+  private RetryingBookkeeperClient bookKeeperClient;
   Configuration conf;
 
   private boolean strictMode;
@@ -102,10 +102,8 @@ public class CachingInputStream extends FSInputStream
     this.remotePath = backendPath.toString();
     this.remoteFileSystem = remoteFileSystem;
 
-    RetryingBookkeeperClient bookkeeperClient = null;
     try {
-      bookkeeperClient = bookKeeperFactory.createBookKeeperClient(conf);
-      FileInfo fileInfo = bookkeeperClient.getFileInfo(backendPath.toString());
+      FileInfo fileInfo = this.bookKeeperClient.getFileInfo(backendPath.toString());
       this.fileSize = fileInfo.fileSize;
       this.lastModified = fileInfo.lastModified;
     }
@@ -114,12 +112,6 @@ public class CachingInputStream extends FSInputStream
       FileStatus fileStatus = parentFs.getFileStatus(backendPath);
       this.fileSize = fileStatus.getLen();
       this.lastModified = fileStatus.getModificationTime();
-    }
-    finally {
-      if (bookkeeperClient != null) {
-        log.info("aaa: CachingInputStream: returning");
-        bookKeeperFactory.returnBookKeeperClient(bookkeeperClient.getTransportPoolable());
-      }
     }
 
     this.statsMbean = statsMbean;
@@ -152,6 +144,7 @@ public class CachingInputStream extends FSInputStream
     this.conf = conf;
     this.strictMode = CacheConfig.isStrictMode(conf);
     try {
+      this.bookKeeperClient = bookKeeperFactory.createBookKeeperClient(conf);
       this.localPath = CacheUtil.getLocalPath(backendPath, conf);
     }
     catch (Exception e) {
@@ -159,6 +152,7 @@ public class CachingInputStream extends FSInputStream
         throw Throwables.propagate(e);
       }
       log.warn("Could not create BookKeeper Client " + Throwables.getStackTraceAsString(e));
+      bookKeeperClient = null;
     }
     this.blockSize = CacheConfig.getBlockSize(conf);
     this.diskReadBufferSize = CacheConfig.getDiskReadBufferSize(conf);
@@ -255,18 +249,6 @@ public class CachingInputStream extends FSInputStream
     // Get the last block
     final long endBlock = ((nextReadPosition + (length - 1)) / blockSize) + 1; // this block will not be read
 
-    RetryingBookkeeperClient bookkeeperClient = null;
-    try {
-      try {
-        bookkeeperClient = bookKeeperFactory.createBookKeeperClient(conf);
-      }
-      catch (TTransportException e) {
-        if (bookkeeperClient != null) {
-          log.info("aaa: readInternal: returning");
-          bookKeeperFactory.returnBookKeeperClient(bookkeeperClient.getTransportPoolable());
-        }
-        e.printStackTrace();
-      }
       // Create read requests
       final List<ReadRequestChain> readRequestChains = setupReadRequestChains(buffer,
               offset,
@@ -274,7 +256,7 @@ public class CachingInputStream extends FSInputStream
               length,
               nextReadPosition,
               nextReadBlock,
-              bookkeeperClient);
+        bookKeeperClient);
 
       log.debug("Executing Chains");
 
@@ -320,13 +302,6 @@ public class CachingInputStream extends FSInputStream
       }
       return sizeRead;
     }
-    finally {
-      if (bookkeeperClient != null) {
-        log.info("aaa: readInternal 2nd: returning");
-        bookKeeperFactory.returnBookKeeperClient(bookkeeperClient.getTransportPoolable());
-      }
-    }
-  }
 
   void updateCacheAndStats(final List<ReadRequestChain> readRequestChains)
   {
@@ -356,13 +331,12 @@ public class CachingInputStream extends FSInputStream
 
     int lengthAlreadyConsidered = 0;
     List<BlockLocation> isCached = null;
-    RetryingBookkeeperClient bookkeeperClient = null;
+
     try {
-      bookkeeperClient = bookKeeperFactory.createBookKeeperClient(conf);
-      if (bookkeeperClient != null) {
+      if (bookKeeperClient != null) {
         CacheStatusRequest request = new CacheStatusRequest(remotePath, fileSize, lastModified, nextReadBlock, endBlock);
         request.setIncrMetrics(true);
-        isCached = bookkeeperClient.getCacheStatus(request);
+        isCached = bookKeeperClient.getCacheStatus(request);
       }
     }
     catch (Exception e) {
@@ -370,12 +344,6 @@ public class CachingInputStream extends FSInputStream
         throw Throwables.propagate(e);
       }
       log.debug("Could not get cache status from server ", e);
-    }
-    finally {
-      if (bookkeeperClient != null) {
-        log.info("aaa: setupReadRequestChains: returning");
-        bookKeeperFactory.returnBookKeeperClient(bookkeeperClient.getTransportPoolable());
-      }
     }
 
     int idx = 0;
@@ -562,6 +530,10 @@ public class CachingInputStream extends FSInputStream
     try {
       if (inputStream != null) {
         inputStream.close();
+      }
+      if (bookKeeperClient != null) {
+        log.info("aaa: readInternal 2nd: returning");
+        bookKeeperFactory.returnBookKeeperClient(bookKeeperClient.getTransportPoolable());
       }
     }
     catch (IOException e) {
