@@ -47,8 +47,9 @@ public class BookKeeperFactory
   static {
     poolConfig = new PoolConfig();
     poolConfig.setPartitionSize(10);
-    poolConfig.setMaxSize(200);
+    poolConfig.setMaxSize(2000);
     poolConfig.setMinSize(100);
+    poolConfig.setDelta(100);
     poolConfig.setMaxIdleMilliseconds(60 * 1000 * 5);
     final int socketTimeout = 60000;
     final int connectTimeout = 10000;

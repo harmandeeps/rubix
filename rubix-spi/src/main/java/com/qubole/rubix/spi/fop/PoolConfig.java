@@ -9,6 +9,7 @@ public class PoolConfig {
     private int maxIdleMilliseconds = 300000; // objects idle for 5 minutes will be destroyed to shrink the pool size
     private int minSize = 5;
     private int maxSize = 20;
+    private int delta = 5;
     private int partitionSize = 4;
     private int scavengeIntervalMilliseconds = 0; //1000 * 60 * 2;
     private double scavengeRatio = 0.5; // to avoid to clean up all connections in the pool at the same time
@@ -85,5 +86,15 @@ public class PoolConfig {
         }
         this.scavengeRatio = scavengeRatio;
         return this;
+    }
+
+    public int getDelta()
+    {
+        return delta;
+    }
+
+    public void setDelta(int delta)
+    {
+        this.delta = delta;
     }
 }

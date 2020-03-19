@@ -75,7 +75,7 @@ public class ObjectPool<T> {
         Poolable<T> freeObject;
         if (subPool.getObjectQueue().size() == 0) {
             // increase objects and return one, it will return null if reach max size
-            subPool.increaseObjects(1);
+            subPool.increaseObjects(this.config.getDelta());
             try {
                 if (blocking) {
                     log.info("aaa: in blocking mode, waiting.....");
