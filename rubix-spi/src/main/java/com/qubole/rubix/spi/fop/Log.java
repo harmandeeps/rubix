@@ -9,8 +9,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License. See accompanying LICENSE file.
- *
- *
+ * <p>
+ * <p>
  * NOTICE: THIS FILE HAS BEEN MODIFIED BY  Qubole Inc UNDER COMPLIANCE WITH THE APACHE 2.0 LICENCE FROM THE ORIGINAL WORK
  * OF https://github.com/DanielYWoo/fast-object-pool.
  */
@@ -24,58 +24,71 @@ import java.util.logging.Logger;
 /**
  * @author Daniel
  */
-public class Log {
+public class Log
+{
+  private static Logger logger = Logger.getLogger("FOP");
 
-    private static Logger logger = Logger.getLogger("FOP");
+  private Log()
+  {
+  }
 
-    private static String getString(Throwable ex, Object ... objects) {
-        StringBuilder sb = new StringBuilder();
-        for (Object object : objects)
-            sb.append(object);
-        sb.append(", ");
-        StringWriter writer = new StringWriter();
-        ex.printStackTrace(new PrintWriter(writer));
-        sb.append(writer.toString());
-        return sb.toString();
+  private static String getString(Throwable ex, Object... objects)
+  {
+    StringBuilder sb = new StringBuilder();
+    for (Object object : objects) {
+      sb.append(object);
     }
+    sb.append(", ");
+    StringWriter writer = new StringWriter();
+    ex.printStackTrace(new PrintWriter(writer));
+    sb.append(writer.toString());
+    return sb.toString();
+  }
 
-    public static boolean isDebug() {
-        return logger.isLoggable(Level.FINE);
+  public static boolean isDebug()
+  {
+    return logger.isLoggable(Level.FINE);
+  }
+
+  private static String getString(Object... objects)
+  {
+    if (objects.length > 1) {
+      StringBuilder sb = new StringBuilder();
+      for (Object object : objects) {
+        sb.append(object);
+      }
+      return sb.toString();
     }
-
-    private static String getString(Object ... objects) {
-        if (objects.length > 1) {
-            StringBuilder sb = new StringBuilder();
-            for (Object object : objects)
-                sb.append(object);
-            return sb.toString();
-        } else {
-            return objects[0].toString();
-        }
+    else {
+      return objects[0].toString();
     }
+  }
 
-    public static void debug(Object ... objects) {
-        if (logger.isLoggable(Level.FINE)) {
-            logger.fine(getString(objects));
-        }
+  public static void debug(Object... objects)
+  {
+    if (logger.isLoggable(Level.FINE)) {
+      logger.fine(getString(objects));
     }
+  }
 
-    public static void info(Object ... objects) {
-        if (logger.isLoggable(Level.INFO)) {
-            logger.info(getString(objects));
-        }
+  public static void info(Object... objects)
+  {
+    if (logger.isLoggable(Level.INFO)) {
+      logger.info(getString(objects));
     }
+  }
 
-    public static void error(Object... objects) {
-        if (logger.isLoggable(Level.SEVERE)) {
-            logger.severe(getString(objects));
-        }
+  public static void error(Object... objects)
+  {
+    if (logger.isLoggable(Level.SEVERE)) {
+      logger.severe(getString(objects));
     }
+  }
 
-    public static void error(Exception ex, Object... objects) {
-        if (logger.isLoggable(Level.SEVERE)) {
-            logger.severe(getString(ex, objects));
-        }
+  public static void error(Exception ex, Object... objects)
+  {
+    if (logger.isLoggable(Level.SEVERE)) {
+      logger.severe(getString(ex, objects));
     }
-
+  }
 }

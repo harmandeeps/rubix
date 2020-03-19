@@ -23,9 +23,8 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 
-import java.io.IOException;
-
-public class RemoteFetchRequestChain extends ReadRequestChain
+public class RemoteFetchRequestChain
+        extends ReadRequestChain
 {
   private static final Log log = LogFactory.getLog(RemoteFetchRequestChain.class);
 
@@ -38,7 +37,7 @@ public class RemoteFetchRequestChain extends ReadRequestChain
   long fileSize;
 
   public RemoteFetchRequestChain(String remotePath, FileSystem remoteFileSystem, String remoteNodeLocation,
-                                 Configuration conf, long lastModified, long fileSize, BookKeeperFactory bookKeeperFactory)
+          Configuration conf, long lastModified, long fileSize, BookKeeperFactory bookKeeperFactory)
   {
     this.remotePath = remotePath;
     this.remoteFileSystem = remoteFileSystem;
@@ -50,7 +49,8 @@ public class RemoteFetchRequestChain extends ReadRequestChain
   }
 
   @Override
-  public Integer call() throws Exception
+  public Integer call()
+          throws Exception
   {
     if (readRequests.size() == 0) {
       return 0;
@@ -64,7 +64,7 @@ public class RemoteFetchRequestChain extends ReadRequestChain
         log.debug("RemoteFetchRequest from : " + remoteNodeLocation + " Start : " + request.backendReadStart +
                 " of length " + request.getBackendReadLength());
         client.readData(new ReadDataRequest(remotePath, request.backendReadStart, request.getBackendReadLength(),
-            fileSize, lastModified));
+                fileSize, lastModified));
       }
     }
     catch (Exception e) {

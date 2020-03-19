@@ -48,7 +48,8 @@ import static com.qubole.rubix.spi.CacheUtil.skipCache;
 /**
  * Created by stagra on 29/12/15.
  */
-public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
+public abstract class CachingFileSystem<T extends FileSystem>
+        extends FileSystem
 {
   private static final Log log = LogFactory.getLog(CachingFileSystem.class);
   protected T fs;
@@ -62,6 +63,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
   public static BookKeeperFactory bookKeeperFactory;
 
   public static String statsMBeanBaseName = "rubix:name=stats";
+
   static {
     MBeanExporter exporter = new MBeanExporter(ManagementFactory.getPlatformMBeanServer());
     statsMBean = new CachingFileSystemStats();
@@ -126,7 +128,8 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
   public abstract String getScheme();
 
   @Override
-  public void initialize(URI uri, Configuration conf) throws IOException
+  public void initialize(URI uri, Configuration conf)
+          throws IOException
   {
     super.initialize(uri, conf);
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
@@ -144,7 +147,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public FSDataInputStream open(Path path, int bufferSize)
-      throws IOException
+          throws IOException
   {
     FSDataInputStream inputStream = null;
 
@@ -155,7 +158,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
     }
 
     Path originalPath = new Path(getOriginalURI(path.toUri()).getScheme(), path.toUri().getAuthority(),
-        path.toUri().getPath());
+            path.toUri().getPath());
 
     if (CacheConfig.isDummyModeEnabled(this.getConf())) {
       return new FSDataInputStream(
@@ -166,15 +169,15 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
     }
 
     return new FSDataInputStream(
-        new BufferedFSInputStream(
-            new CachingInputStream(this, originalPath, this.getConf(), statsMBean,
-                bookKeeperFactory, fs, bufferSize, statistics),
-            CacheConfig.getBlockSize(getConf())));
+            new BufferedFSInputStream(
+                    new CachingInputStream(this, originalPath, this.getConf(), statsMBean,
+                            bookKeeperFactory, fs, bufferSize, statistics),
+                    CacheConfig.getBlockSize(getConf())));
   }
 
   @Override
   public FSDataOutputStream create(Path path, FsPermission fsPermission, boolean b, int i, short i1, long l, Progressable progressable)
-      throws IOException
+          throws IOException
   {
     //CachingInputStream.invalidate(path);
     return fs.create(path, fsPermission, b, i, i1, l, progressable);
@@ -182,7 +185,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public FSDataOutputStream append(Path path, int i, Progressable progressable)
-      throws IOException
+          throws IOException
   {
     //CachingInputStream.invalidate(path);
     return fs.append(path, i, progressable);
@@ -190,7 +193,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public boolean rename(Path path, Path path1)
-      throws IOException
+          throws IOException
   {
     //CachingInputStream.invalidate(path);
     //CachingInputStream.invalidate(path1);
@@ -199,7 +202,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public boolean delete(Path path)
-      throws IOException
+          throws IOException
   {
     // TODO: Support directory invalidation
     // When we do support caching file listings, we should invalidate that cache here
@@ -211,7 +214,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public boolean delete(Path path, boolean b)
-      throws IOException
+          throws IOException
   {
     // TODO: Support directory invalidation, same as in delete(Path)
     //CachingInputStream.invalidate(path);
@@ -220,7 +223,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public FileStatus[] listStatus(Path path)
-      throws FileNotFoundException, IOException
+          throws FileNotFoundException, IOException
   {
     FileStatus[] files = fs.listStatus(path);
     for (int i = 0; i < files.length; i++) {
@@ -243,14 +246,14 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
 
   @Override
   public boolean mkdirs(Path path, FsPermission fsPermission)
-      throws IOException
+          throws IOException
   {
     return fs.mkdirs(path, fsPermission);
   }
 
   @Override
   public FileStatus getFileStatus(Path path)
-      throws IOException
+          throws IOException
   {
     FileStatus originalStatus = fs.getFileStatus(path);
     originalStatus.setPath(getRubixPath(originalStatus.getPath(), isRubixSchemeUsed));
@@ -276,7 +279,8 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
   }
 
   @Override
-  public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len) throws IOException
+  public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len)
+          throws IOException
   {
     if (cacheSkipped || (CacheConfig.isEmbeddedModeEnabled(getConf()) && !bookKeeperFactory.isBookKeeperInitialized())) {
       return fs.getFileBlockLocations(file, start, len);
@@ -314,8 +318,8 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
               return fs.getFileBlockLocations(file, start, len);
             }
 
-            String[] name = new String[]{hostName};
-            String[] host = new String[]{hostName};
+            String[] name = new String[] {hostName};
+            String[] host = new String[] {hostName};
             blockLocations[blockNumber++] = new BlockLocation(name, host, i, end - i);
             log.debug(String.format("BlockLocation %s %d %d %s ", file.getPath().toString(), i, end - i, host[0]));
           }
@@ -327,7 +331,7 @@ public abstract class CachingFileSystem<T extends FileSystem> extends FileSystem
           return fs.getFileBlockLocations(file, start, len);
         }
         finally {
-          if (client!=null) {
+          if (client != null) {
             bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
           }
         }

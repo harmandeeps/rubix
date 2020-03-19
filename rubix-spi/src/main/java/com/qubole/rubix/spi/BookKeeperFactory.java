@@ -53,8 +53,10 @@ public class BookKeeperFactory
     final int socketTimeout = 60000;
     final int connectTimeout = 10000;
 
-    factory = new ObjectFactory<TSocket>() {
-      @Override public TSocket create(String host, int socketTimeout, int connectTimeout)
+    factory = new ObjectFactory<TSocket>()
+    {
+      @Override
+      public TSocket create(String host, int socketTimeout, int connectTimeout)
       {
         log.info("aaa: opening connection on host: " + host);
         TSocket socket = null;
@@ -67,12 +69,16 @@ public class BookKeeperFactory
         }
         return socket;
       }
-      @Override public void destroy(TSocket o)
+
+      @Override
+      public void destroy(TSocket o)
       {
         // clean up and release resources
         o.close();
       }
-      @Override public boolean validate(TSocket o)
+
+      @Override
+      public boolean validate(TSocket o)
       {
         boolean isClosed = o.getSocket().isClosed();
         log.info("aaa: isClosed: " + isClosed);
@@ -81,7 +87,7 @@ public class BookKeeperFactory
     };
 
     log.info("aaa: BookKeeperFactory constructor");
-    if (!flag.get())
+    if (!flag.get()) {
       synchronized (flag) {
         if (!flag.get()) {
           log.info("aaa: initializing pool");
@@ -93,6 +99,7 @@ public class BookKeeperFactory
           flag.set(true);
         }
       }
+    }
   }
 
   public BookKeeperFactory()
@@ -106,15 +113,16 @@ public class BookKeeperFactory
     }
   }
 
-  public RetryingBookkeeperClient createBookKeeperClient(String host, Configuration conf) throws TTransportException
+  public RetryingBookkeeperClient createBookKeeperClient(String host, Configuration conf)
+          throws TTransportException
   {
     if (bookKeeper != null) {
       return new LocalBookKeeperClient(null, bookKeeper);
     }
     else {
       if (!concurrentHashMap.containsKey(host)) {
-        synchronized(concurrentHashMap) {
-          if(!concurrentHashMap.containsKey(host)) {
+        synchronized (concurrentHashMap) {
+          if (!concurrentHashMap.containsKey(host)) {
             final int socketTimeout = CacheConfig.getServerSocketTimeout(conf);
             final int connectTimeout = CacheConfig.getServerConnectTimeout(conf);
             log.info("aaa: host: " + host + " not in map, registering host: " + host + " count: " + count.get());
@@ -170,12 +178,14 @@ public class BookKeeperFactory
     return bookKeeper != null;
   }
 
-  public RetryingBookkeeperClient createBookKeeperClient(Configuration conf) throws TTransportException
+  public RetryingBookkeeperClient createBookKeeperClient(Configuration conf)
+          throws TTransportException
   {
     return createBookKeeperClient("localhost", conf);
   }
 
-  public void returnBookKeeperClient(Poolable<TTransport> obj) {
+  public void returnBookKeeperClient(Poolable<TTransport> obj)
+  {
     if (obj != null && obj.getObject() != null && obj.getObject().isOpen()) {
       pool.returnObject(obj);
     }

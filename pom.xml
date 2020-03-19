@@ -217,7 +217,7 @@
             <version>2.5.1</version>
         </plugin>
 
-        <!--<plugin>
+        <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-checkstyle-plugin</artifactId>
             <version>3.0.0</version>
@@ -246,9 +246,9 @@
                     </goals>
                 </execution>
             </executions>
-        </plugin>-->
+        </plugin>
 
-<!--        <plugin>
+        <plugin>
             <groupId>com.mycila</groupId>
             <artifactId>license-maven-plugin</artifactId>
             <version>2.3</version>
@@ -257,6 +257,9 @@
                 <includes>
                     <include>**/*.java</include>
                 </includes>
+                <excludes>
+                    <exclude>src/main/java/com/qubole/rubix/spi/fop/**</exclude>
+                </excludes>
             </configuration>
             <executions>
                 <execution>
@@ -265,7 +268,7 @@
                     </goals>
                 </execution>
             </executions>
-        </plugin>-->
+        </plugin>
 
         <plugin>
             <groupId>org.codehaus.mojo</groupId>

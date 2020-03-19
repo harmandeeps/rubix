@@ -35,7 +35,8 @@ import static com.google.common.base.Preconditions.checkState;
  * <p>
  * This chain reads from Remote and stores one copy in cache
  */
-public class RemoteReadRequestChain extends ReadRequestChain
+public class RemoteReadRequestChain
+        extends ReadRequestChain
 {
   final FSDataInputStream inputStream;
 
@@ -70,7 +71,7 @@ public class RemoteReadRequestChain extends ReadRequestChain
   }
 
   public Integer call()
-      throws IOException
+          throws IOException
   {
     log.debug(String.format("Read Request threadName: %s, Remote read Executor threadName: %s", threadName, Thread.currentThread().getName()));
     Thread.currentThread().setName(threadName);
@@ -135,7 +136,7 @@ public class RemoteReadRequestChain extends ReadRequestChain
   }
 
   private int readIntoBuffer(byte[] destBuffer, int destBufferOffset, int length)
-      throws IOException
+          throws IOException
   {
     int nread = 0;
     while (nread < length) {
@@ -149,7 +150,7 @@ public class RemoteReadRequestChain extends ReadRequestChain
   }
 
   private int copyIntoCache(FileChannel fileChannel, byte[] destBuffer, int destBufferOffset, int length, long cacheReadStart)
-      throws IOException
+          throws IOException
   {
     log.debug(String.format("Trying to copy [%d - %d] bytes into cache with offset %d into localFile %s", cacheReadStart, cacheReadStart + length, destBufferOffset, localFile));
     long start = System.nanoTime();
@@ -171,11 +172,11 @@ public class RemoteReadRequestChain extends ReadRequestChain
   public ReadRequestChainStats getStats()
   {
     return new ReadRequestChainStats()
-        .setPrefixRead(totalPrefixRead)
-        .setRequestedRead(totalRequestedRead)
-        .setSuffixRead(totalSuffixRead)
-        .setWarmupPenalty(warmupPenalty)
-        .setRemoteReads(requests);
+            .setPrefixRead(totalPrefixRead)
+            .setRequestedRead(totalRequestedRead)
+            .setSuffixRead(totalSuffixRead)
+            .setWarmupPenalty(warmupPenalty)
+            .setRemoteReads(requests);
   }
 
   @Override
@@ -186,7 +187,7 @@ public class RemoteReadRequestChain extends ReadRequestChain
       client = bookKeeperFactory.createBookKeeperClient(conf);
       for (ReadRequest readRequest : readRequests) {
         SetCachedRequest request = new SetCachedRequest(remotePath, fileSize, lastModified,
-            toBlock(readRequest.getBackendReadStart()), toBlock(readRequest.getBackendReadEnd() - 1) + 1);
+                toBlock(readRequest.getBackendReadStart()), toBlock(readRequest.getBackendReadEnd() - 1) + 1);
         client.setAllCached(request);
       }
     }
@@ -194,9 +195,9 @@ public class RemoteReadRequestChain extends ReadRequestChain
       log.warn("Could not update BookKeeper about newly cached blocks", e);
     }
     finally {
-        if (client != null) {
-          bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
-        }
+      if (client != null) {
+        bookKeeperFactory.returnBookKeeperClient(client.getTransportPoolable());
+      }
     }
   }
 

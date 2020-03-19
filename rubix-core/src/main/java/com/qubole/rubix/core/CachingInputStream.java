@@ -51,7 +51,8 @@ import static com.google.common.base.Preconditions.checkState;
 /**
  * Created by stagra on 29/12/15.
  */
-public class CachingInputStream extends FSInputStream
+public class CachingInputStream
+        extends FSInputStream
 {
   private FSDataInputStream inputStream;
 
@@ -93,9 +94,10 @@ public class CachingInputStream extends FSInputStream
   BookKeeperFactory bookKeeperFactory;
 
   public CachingInputStream(FileSystem parentFs, Path backendPath, Configuration conf,
-                            CachingFileSystemStats statsMbean,
-                            BookKeeperFactory bookKeeperFactory, FileSystem remoteFileSystem,
-                            int bufferSize, FileSystem.Statistics statistics) throws IOException
+          CachingFileSystemStats statsMbean,
+          BookKeeperFactory bookKeeperFactory, FileSystem remoteFileSystem,
+          int bufferSize, FileSystem.Statistics statistics)
+          throws IOException
   {
     initialize(backendPath.toString(), conf, bookKeeperFactory);
     this.bookKeeperFactory = bookKeeperFactory;
@@ -121,10 +123,10 @@ public class CachingInputStream extends FSInputStream
 
   @VisibleForTesting
   public CachingInputStream(FSDataInputStream inputStream, Configuration conf, Path backendPath,
-                            long size, long lastModified, CachingFileSystemStats statsMbean,
-                            BookKeeperFactory bookKeeperFactory,
-                            FileSystem remoteFileSystem, int buffersize, FileSystem.Statistics statistics)
-      throws IOException
+          long size, long lastModified, CachingFileSystemStats statsMbean,
+          BookKeeperFactory bookKeeperFactory,
+          FileSystem remoteFileSystem, int buffersize, FileSystem.Statistics statistics)
+          throws IOException
   {
     initialize(backendPath.toString(), conf, bookKeeperFactory);
 
@@ -158,7 +160,8 @@ public class CachingInputStream extends FSInputStream
     this.diskReadBufferSize = CacheConfig.getDiskReadBufferSize(conf);
   }
 
-  FSDataInputStream getParentDataInputStream() throws IOException
+  FSDataInputStream getParentDataInputStream()
+          throws IOException
   {
     if (inputStream == null) {
       inputStream = remoteFileSystem.open(new Path(remotePath), bufferSize);
@@ -168,7 +171,7 @@ public class CachingInputStream extends FSInputStream
 
   @Override
   public void seek(long pos)
-      throws IOException
+          throws IOException
   {
     checkState(pos >= 0, "Negative Position");
     log.debug(String.format("Seek request, currentPos: %d currentBlock: %d", nextReadPosition, nextReadBlock));
@@ -179,21 +182,21 @@ public class CachingInputStream extends FSInputStream
 
   @Override
   public long getPos()
-      throws IOException
+          throws IOException
   {
     return nextReadPosition;
   }
 
   @Override
   public boolean seekToNewSource(long l)
-      throws IOException
+          throws IOException
   {
     return false;
   }
 
   @Override
   public int read()
-      throws IOException
+          throws IOException
   {
     // This stream is wrapped with BufferedInputStream, so this method should never be called
     throw new UnsupportedOperationException();
@@ -201,7 +204,7 @@ public class CachingInputStream extends FSInputStream
 
   @Override
   public int read(byte[] buffer, int offset, int length)
-      throws IOException
+          throws IOException
   {
     try {
       return readInternal(buffer, offset, length);
@@ -222,7 +225,7 @@ public class CachingInputStream extends FSInputStream
   }
 
   int readFullyDirect(byte[] buffer, int offset, int length)
-      throws IOException
+          throws IOException
   {
     int nread = 0;
     while (nread < length) {
@@ -236,7 +239,7 @@ public class CachingInputStream extends FSInputStream
   }
 
   private int readInternal(byte[] buffer, int offset, int length)
-      throws IOException, InterruptedException, ExecutionException
+          throws IOException, InterruptedException, ExecutionException
 
   {
     log.debug(String.format("Got Read, currentPos: %d currentBlock: %d bufferOffset: %d length: %d of file : %s", nextReadPosition, nextReadBlock, offset, length, CacheUtil.getLocalPath(remotePath, conf)));
@@ -249,59 +252,59 @@ public class CachingInputStream extends FSInputStream
     // Get the last block
     final long endBlock = ((nextReadPosition + (length - 1)) / blockSize) + 1; // this block will not be read
 
-      // Create read requests
-      final List<ReadRequestChain> readRequestChains = setupReadRequestChains(buffer,
-              offset,
-              endBlock,
-              length,
-              nextReadPosition,
-              nextReadBlock,
-        bookKeeperClient);
+    // Create read requests
+    final List<ReadRequestChain> readRequestChains = setupReadRequestChains(buffer,
+            offset,
+            endBlock,
+            length,
+            nextReadPosition,
+            nextReadBlock,
+            bookKeeperClient);
 
-      log.debug("Executing Chains");
+    log.debug("Executing Chains");
 
-      // start read requests
-      ImmutableList.Builder builder = ImmutableList.builder();
-      int sizeRead = 0;
+    // start read requests
+    ImmutableList.Builder builder = ImmutableList.builder();
+    int sizeRead = 0;
 
-      for (ReadRequestChain readRequestChain : readRequestChains) {
-        readRequestChain.lock();
-        builder.add(readService.submit(readRequestChain));
-      }
-
-      List<ListenableFuture<Integer>> futures = builder.build();
-      for (ListenableFuture<Integer> future : futures) {
-        // exceptions handled in caller
-        try {
-          sizeRead += future.get();
-        }
-        catch (ExecutionException | InterruptedException e) {
-          for (ReadRequestChain readRequestChain : readRequestChains) {
-            readRequestChain.cancel();
-          }
-          throw e;
-        }
-      }
-
-      // mark all read blocks cached
-      // We can let this is happen in background
-      readService.execute(new Runnable() {
-        @Override
-        public void run()
-        {
-          updateCacheAndStats(readRequestChains);
-        }
-      });
-
-
-      log.debug(String.format("Read %d bytes", sizeRead));
-      if (sizeRead > 0) {
-        nextReadPosition += sizeRead;
-        setNextReadBlock();
-        log.debug(String.format("New nextReadPosition: %d nextReadBlock: %d", nextReadPosition, nextReadBlock));
-      }
-      return sizeRead;
+    for (ReadRequestChain readRequestChain : readRequestChains) {
+      readRequestChain.lock();
+      builder.add(readService.submit(readRequestChain));
     }
+
+    List<ListenableFuture<Integer>> futures = builder.build();
+    for (ListenableFuture<Integer> future : futures) {
+      // exceptions handled in caller
+      try {
+        sizeRead += future.get();
+      }
+      catch (ExecutionException | InterruptedException e) {
+        for (ReadRequestChain readRequestChain : readRequestChains) {
+          readRequestChain.cancel();
+        }
+        throw e;
+      }
+    }
+
+    // mark all read blocks cached
+    // We can let this is happen in background
+    readService.execute(new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        updateCacheAndStats(readRequestChains);
+      }
+    });
+
+    log.debug(String.format("Read %d bytes", sizeRead));
+    if (sizeRead > 0) {
+      nextReadPosition += sizeRead;
+      setNextReadBlock();
+      log.debug(String.format("New nextReadPosition: %d nextReadBlock: %d", nextReadPosition, nextReadBlock));
+    }
+    return sizeRead;
+  }
 
   void updateCacheAndStats(final List<ReadRequestChain> readRequestChains)
   {
@@ -314,12 +317,13 @@ public class CachingInputStream extends FSInputStream
   }
 
   List<ReadRequestChain> setupReadRequestChains(byte[] buffer,
-                                                int offset,
-                                                long endBlock,
-                                                int length,
-                                                long nextReadPosition,
-                                                long nextReadBlock,
-                                                BookKeeperService.Client bookKeeperClient) throws IOException
+          int offset,
+          long endBlock,
+          int length,
+          long nextReadPosition,
+          long nextReadBlock,
+          BookKeeperService.Client bookKeeperClient)
+          throws IOException
   {
     DirectReadRequestChain directReadRequestChain = null;
     RemoteReadRequestChain remoteReadRequestChain = null;
@@ -367,12 +371,12 @@ public class CachingInputStream extends FSInputStream
       int bufferOffest = offset + lengthAlreadyConsidered;
 
       ReadRequest readRequest = new ReadRequest(backendReadStart,
-          backendReadEnd,
-          actualReadStart,
-          actualReadEnd,
-          buffer,
-          bufferOffest,
-          fileSize);
+              backendReadEnd,
+              actualReadStart,
+              actualReadEnd,
+              buffer,
+              bufferOffest,
+              fileSize);
 
       lengthAlreadyConsidered += readRequest.getActualReadLength();
 
@@ -402,9 +406,9 @@ public class CachingInputStream extends FSInputStream
             log.debug(String.format("Sending block %d to NonLocalRequestChain to node : %s", blockNum, remoteLocation));
             if (!nonLocalAsyncRequests.containsKey(remoteLocation)) {
               NonLocalRequestChain nonLocalRequestChain =
-                  new NonLocalRequestChain(remoteLocation, fileSize, lastModified,
-                      conf, remoteFileSystem, remotePath, strictMode,
-                      statistics, nextReadBlock, endBlock, new BookKeeperFactory());
+                      new NonLocalRequestChain(remoteLocation, fileSize, lastModified,
+                              conf, remoteFileSystem, remotePath, strictMode,
+                              statistics, nextReadBlock, endBlock, new BookKeeperFactory());
               nonLocalAsyncRequests.put(remoteLocation, nonLocalRequestChain);
             }
             nonLocalAsyncRequests.get(remoteLocation).addReadRequest(readRequest);
@@ -419,8 +423,8 @@ public class CachingInputStream extends FSInputStream
             log.debug(String.format("Sending block %d to NonLocalReadRequestChain to node : %s", blockNum, remoteLocation));
             if (!nonLocalRequests.containsKey(remoteLocation)) {
               NonLocalReadRequestChain nonLocalReadRequestChain =
-                  new NonLocalReadRequestChain(remoteLocation, fileSize, lastModified, conf,
-                      remoteFileSystem, remotePath, strictMode, statistics);
+                      new NonLocalReadRequestChain(remoteLocation, fileSize, lastModified, conf,
+                              remoteFileSystem, remotePath, strictMode, statistics);
               nonLocalRequests.put(remoteLocation, nonLocalReadRequestChain);
             }
             nonLocalRequests.get(remoteLocation).addReadRequest(readRequest);
@@ -438,7 +442,7 @@ public class CachingInputStream extends FSInputStream
 
             if (remoteFetchRequestChain == null) {
               remoteFetchRequestChain = new RemoteFetchRequestChain(remotePath, remoteFileSystem,
-                  "localhost", conf, lastModified, fileSize, bookKeeperFactory);
+                      "localhost", conf, lastModified, fileSize, bookKeeperFactory);
             }
 
             directReadRequestChain.addReadRequest(readRequest);
@@ -464,7 +468,7 @@ public class CachingInputStream extends FSInputStream
 
     if (!CacheConfig.isParallelWarmupEnabled(conf)) {
       if (directReadRequestChain != null ||
-          remoteReadRequestChain != null) {
+              remoteReadRequestChain != null) {
         ChainedReadRequestChain shared = new ChainedReadRequestChain();
         if (remoteReadRequestChain != null) {
           shared.addReadRequestChain(remoteReadRequestChain);
