@@ -111,9 +111,7 @@ public class BookKeeperFactory
       return new LocalBookKeeperClient(new Poolable<TTransport>(null, null, null), bookKeeper);
     }
     else {
-      Poolable<TTransport> obj;
-      obj = pool.borrowObject(host, conf);
-      RetryingPooledBookkeeperClient retryingBookkeeperClient = new RetryingPooledBookkeeperClient(obj, CacheConfig.getMaxRetries(conf));
+      RetryingPooledBookkeeperClient retryingBookkeeperClient = new RetryingPooledBookkeeperClient(host, conf);
       return retryingBookkeeperClient;
     }
   }

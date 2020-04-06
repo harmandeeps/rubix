@@ -25,6 +25,7 @@ import com.qubole.rubix.spi.thrift.HeartbeatRequest;
 import com.qubole.rubix.spi.thrift.SetCachedRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
@@ -34,30 +35,35 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 public class RetryingPooledBookkeeperClient
-        extends BookKeeperService.Client implements Closeable
+        implements Closeable
 {
   private static final Log log = LogFactory.getLog(RetryingPooledBookkeeperClient.class);
   private int maxRetries;
   private TTransport transport;
   private Poolable<TTransport> transportPoolable;
+  private BookKeeperService.Client bookKeeperServiceClient;
+  private String host;
+  private Configuration configuration;
 
   @VisibleForTesting
   public RetryingPooledBookkeeperClient(TTransport transport, int maxRetries)
   {
-    super(new TBinaryProtocol(transport));
+    this.bookKeeperServiceClient = new BookKeeperService.Client(new TBinaryProtocol(transport));
     this.transport = transport;
     this.maxRetries = maxRetries;
   }
 
-  public RetryingPooledBookkeeperClient(Poolable<TTransport> transportPoolable, int maxRetries)
+  public RetryingPooledBookkeeperClient(String host, Configuration configuration)
   {
-    super(new TBinaryProtocol(transportPoolable.getObject()));
+    this.host = host;
+    this.configuration = configuration;
+    Poolable<TTransport> obj = BookKeeperFactory.pool.borrowObject(host, configuration);
+    this.bookKeeperServiceClient = new BookKeeperService.Client(new TBinaryProtocol(obj.getObject()));
     this.transport = transportPoolable.getObject();
-    this.transportPoolable = transportPoolable;
-    this.maxRetries = maxRetries;
+    this.transportPoolable = obj;
+    this.maxRetries = CacheConfig.getMaxRetries(configuration);
   }
 
-  @Override
   public List<BlockLocation> getCacheStatus(final CacheStatusRequest request) throws TException
   {
     return retryConnection(new Callable<List<BlockLocation>>()
@@ -66,12 +72,11 @@ public class RetryingPooledBookkeeperClient
       public List<BlockLocation> call()
           throws TException
       {
-        return RetryingPooledBookkeeperClient.super.getCacheStatus(request);
+        return bookKeeperServiceClient.getCacheStatus(request);
       }
     });
   }
 
-  @Override
   public void setAllCached(final SetCachedRequest request) throws TException
   {
     retryConnection(new Callable<Void>()
@@ -80,13 +85,12 @@ public class RetryingPooledBookkeeperClient
       public Void call()
           throws Exception
       {
-        RetryingPooledBookkeeperClient.super.setAllCached(request);
+        bookKeeperServiceClient.setAllCached(request);
         return null;
       }
     });
   }
 
-  @Override
   public void handleHeartbeat(final HeartbeatRequest request) throws TException
   {
     retryConnection(new Callable<Void>()
@@ -94,7 +98,7 @@ public class RetryingPooledBookkeeperClient
       @Override
       public Void call() throws Exception
       {
-        RetryingPooledBookkeeperClient.super.handleHeartbeat(request);
+        bookKeeperServiceClient.handleHeartbeat(request);
         return null;
       }
     });
@@ -115,6 +119,8 @@ public class RetryingPooledBookkeeperClient
       catch (Exception e) {
         log.warn("Error while connecting : ", e);
         errors++;
+        Poolable<TTransport> obj = BookKeeperFactory.pool.borrowObject(host, configuration);
+        this.bookKeeperServiceClient = new BookKeeperService.Client(new TBinaryProtocol(obj.getObject()));
       }
       if (transport.isOpen()) {
         transport.close();
