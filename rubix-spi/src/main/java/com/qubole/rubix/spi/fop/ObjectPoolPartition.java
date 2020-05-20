@@ -16,7 +16,6 @@
  */
 package com.qubole.rubix.spi.fop;
 
-import com.qubole.rubix.spi.RetryingPooledBookkeeperClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -31,7 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class ObjectPoolPartition<T>
 {
-  private static final Log log = LogFactory.getLog(RetryingPooledBookkeeperClient.class);
+  private static final Log log = LogFactory.getLog(ObjectPoolPartition.class);
 
   private final ObjectPool<T> pool;
   private final PoolConfig config;
@@ -41,9 +40,10 @@ public class ObjectPoolPartition<T>
   private String host;
   private int socketTimeout;
   private int connectTimeout;
+  private final String name;
 
   public ObjectPoolPartition(ObjectPool<T> pool, PoolConfig config,
-          ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, int socketTimeout, int connectTimeout)
+          ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, int socketTimeout, int connectTimeout, String name)
   {
     this.pool = pool;
     this.config = config;
@@ -52,6 +52,7 @@ public class ObjectPoolPartition<T>
     this.host = host;
     this.socketTimeout = socketTimeout;
     this.connectTimeout = connectTimeout;
+    this.name = name;
     totalCount = 0;
     for (int i = 0; i < config.getMinSize(); i++) {
       T object = objectFactory.create(host, socketTimeout, connectTimeout);
@@ -65,14 +66,14 @@ public class ObjectPoolPartition<T>
   public void returnObject(Poolable<T> object)
   {
     if (!objectFactory.validate(object.getObject())) {
-      log.debug(String.format("Invalid object for host %s removing %s ", object.getHost(), object));
+      log.debug(String.format("%s : Invalid object for host %s removing %s ", name, object.getHost(), object));
       decreaseObject(object);
       // Compensate for the removed object. Needed to prevent endless wait when in parallel a borrowObject is called
       increaseObjects(1, false);
       return;
     }
 
-    log.debug(String.format("Returning object %s to queue of host %s. Queue size: %d", object, object.getHost(), objectQueue.size()));
+    log.debug(String.format("%s : Returning object %s to queue of host %s. Queue size: %d", name, object, object.getHost(), objectQueue.size()));
     try {
       if (!objectQueue.offer(object, 5, TimeUnit.SECONDS)) {
         log.error("Created more objects than configured: " + totalCount);
@@ -145,7 +146,7 @@ public class ObjectPoolPartition<T>
           totalCount++;
         }
       }
-      log.debug("Increased pool size by " + (totalCount - oldCount) + " to new size: " + totalCount + ", current queue size: " + objectQueue.size());
+      log.info(this.name + " : Increased pool size by " + (totalCount - oldCount) + " to new size: " + totalCount + ", current queue size: " + objectQueue.size());
     }
     catch (Exception e) {
       // objectToReturn is not on the queue hence untracked, clean it up before forwarding exception
