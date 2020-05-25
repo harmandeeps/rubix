@@ -27,6 +27,8 @@ public class SocketChannelObjectFactory
 {
   private static final Log log = LogFactory.getLog(SocketChannelObjectFactory.class.getName());
   private static final String LDS_POOL = "lds-pool";
+  private static final int SCAVENGE_INTERVAL_MILLISECONDS = 60000;
+  private static final int DELTA = 1;
 
   private final int port;
 
@@ -91,13 +93,15 @@ public class SocketChannelObjectFactory
     PoolConfig poolConfig = new PoolConfig();
     poolConfig.setMaxSize(CacheConfig.getTranportPoolMaxSize(conf));
     poolConfig.setMinSize(CacheConfig.getTransportPoolMinSize(conf));
-    poolConfig.setDelta(1);
+    poolConfig.setDelta(DELTA);
     poolConfig.setMaxWaitMilliseconds(CacheConfig.getTransportPoolMaxWait(conf));
-    poolConfig.setScavengeIntervalMilliseconds(60000);
+    poolConfig.setScavengeIntervalMilliseconds(SCAVENGE_INTERVAL_MILLISECONDS);
+    poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
+    poolConfig.setSocketTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
 
     ObjectFactory<SocketChannel> factory = new SocketChannelObjectFactory(port);
     ObjectPool<SocketChannel> pool = new ObjectPool(poolConfig, factory, LDS_POOL);
-    pool.registerHost(host, CacheConfig.getClientReadTimeout(conf), CacheConfig.getClientReadTimeout(conf));
+    pool.registerHost(host);
     return pool;
   }
 }

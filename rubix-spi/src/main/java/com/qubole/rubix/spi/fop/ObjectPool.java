@@ -51,9 +51,9 @@ public class ObjectPool<T>
     }
   }
 
-  public void registerHost(String host, int socketTimeout, int connectTimeout)
+  public void registerHost(String host)
   {
-    hostToPoolMap.put(host, new ObjectPoolPartition<>(this, config, factory, createBlockingQueue(config), host, socketTimeout, connectTimeout, this.name));
+    hostToPoolMap.put(host, new ObjectPoolPartition<>(this, config, factory, createBlockingQueue(config), host, this.name));
   }
 
   protected BlockingQueue<Poolable<T>> createBlockingQueue(PoolConfig poolConfig)
@@ -66,9 +66,7 @@ public class ObjectPool<T>
     if (!hostToPoolMap.containsKey(host)) {
       synchronized (hostToPoolMap) {
         if (!hostToPoolMap.containsKey(host)) {
-          int socketTimeout = CacheConfig.getServerSocketTimeout(conf);
-          int connectTimeout = CacheConfig.getServerConnectTimeout(conf);
-          registerHost(host, socketTimeout, connectTimeout);
+          registerHost(host);
         }
       }
     }

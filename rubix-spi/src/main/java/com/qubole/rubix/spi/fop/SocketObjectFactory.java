@@ -26,6 +26,7 @@ public class SocketObjectFactory
 {
   private static final Log log = LogFactory.getLog(SocketObjectFactory.class.getName());
   private static final String BKS_POOL = "bks-pool";
+  private static final int SCAVENGE_INTERVAL_MILLISECONDS = 60000;
 
   private final int port;
 
@@ -84,11 +85,13 @@ public class SocketObjectFactory
     poolConfig.setMinSize(CacheConfig.getTransportPoolMinSize(conf));
     poolConfig.setDelta(CacheConfig.getTransportPoolDeltaSize(conf));
     poolConfig.setMaxWaitMilliseconds(CacheConfig.getTransportPoolMaxWait(conf));
-    poolConfig.setScavengeIntervalMilliseconds(60000);
+    poolConfig.setScavengeIntervalMilliseconds(SCAVENGE_INTERVAL_MILLISECONDS);
+    poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getServerSocketTimeout(conf));
+    poolConfig.setSocketTimeoutMilliseconds(CacheConfig.getServerConnectTimeout(conf));
 
     ObjectFactory<TSocket> factory = new SocketObjectFactory(port);
     ObjectPool<TSocket> pool = new ObjectPool(poolConfig, factory, BKS_POOL);
-    pool.registerHost(host, CacheConfig.getServerSocketTimeout(conf), CacheConfig.getServerConnectTimeout(conf));
+    pool.registerHost(host);
     return pool;
   }
 }

@@ -43,19 +43,17 @@ public class ObjectPoolPartition<T>
   private final String name;
 
   public ObjectPoolPartition(ObjectPool<T> pool, PoolConfig config,
-          ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, int socketTimeout, int connectTimeout, String name)
+          ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, String name)
   {
     this.pool = pool;
     this.config = config;
     this.objectFactory = objectFactory;
     this.objectQueue = queue;
     this.host = host;
-    this.socketTimeout = socketTimeout;
-    this.connectTimeout = connectTimeout;
     this.name = name;
     totalCount = 0;
     for (int i = 0; i < config.getMinSize(); i++) {
-      T object = objectFactory.create(host, socketTimeout, connectTimeout);
+      T object = objectFactory.create(host, config.getSocketTimeoutMilliseconds(), config.getConnectTimeoutMilliseconds());
       if (object != null) {
         objectQueue.add(new Poolable<>(object, pool, host));
         totalCount++;
