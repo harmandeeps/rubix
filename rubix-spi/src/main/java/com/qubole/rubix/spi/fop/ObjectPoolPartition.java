@@ -187,6 +187,7 @@ public class ObjectPoolPartition<T>
   {
     int delta = this.totalCount - config.getMinSize();
     if (delta <= 0) {
+      log.info("scavenge delta is 0 not needed");
       return;
     }
     int removed = 0;
@@ -196,10 +197,11 @@ public class ObjectPoolPartition<T>
     while (delta-- > 0 && obj != null) {
       // performance trade off: delta always decrease even if the queue is empty,
       // so it could take several intervals to shrink the pool to the configured min value.
-      log.debug(String.format("obj=%s, now-last=%s, max idle=", obj, now - obj.getLastAccessTs(),
+      log.info(String.format("obj=%s, now-last=%s, max idle=%s", obj, now - obj.getLastAccessTs(),
               config.getMaxIdleMilliseconds()));
       if (now - obj.getLastAccessTs() > config.getMaxIdleMilliseconds() &&
               ThreadLocalRandom.current().nextDouble(1) < config.getScavengeRatio()) {
+        log.info("scavenge removing object: " + obj);
         decreaseObject(obj); // shrink the pool size if the object reaches max idle time
         removed++;
       }
@@ -209,7 +211,7 @@ public class ObjectPoolPartition<T>
       obj = objectQueue.poll();
     }
     if (removed > 0) {
-      log.debug(removed + " objects were scavenged.");
+      log.info(removed + " objects were scavenged.");
     }
   }
 

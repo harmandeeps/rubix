@@ -45,7 +45,9 @@ public class ObjectPool<T>
     this.factory = objectFactory;
     this.hostToPoolMap = new ConcurrentHashMap<>();
     this.name = name;
+    log.info("Scavenge : interval: " + config.getScavengeIntervalMilliseconds());
     if (config.getScavengeIntervalMilliseconds() > 0) {
+      log.info("Scavenge : initializing Scavenge");
       this.scavenger = new Scavenger();
       this.scavenger.start();
     }
@@ -127,11 +129,13 @@ public class ObjectPool<T>
     @Override
     public void run()
     {
+      log.info("Scavenger started");
       while (!ObjectPool.this.shuttingDown) {
         try {
+          log.info("Scavenge values: " + hostToPoolMap.values());
           for (ObjectPoolPartition<T> subPool : hostToPoolMap.values()) {
             Thread.sleep(config.getScavengeIntervalMilliseconds());
-            log.debug("Scavenge sub pool of host" + subPool.getHost());
+            log.info("Scavenge sub pool of host" + subPool.getHost());
             subPool.scavenge();
           }
         }

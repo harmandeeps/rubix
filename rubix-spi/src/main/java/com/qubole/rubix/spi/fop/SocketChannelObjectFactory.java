@@ -90,14 +90,14 @@ public class SocketChannelObjectFactory
     log.debug(LDS_POOL + " : Creating socket channel object pool");
     PoolConfig poolConfig = new PoolConfig();
     poolConfig.setMaxSize(CacheConfig.getTranportPoolMaxSize(conf));
-    poolConfig.setMinSize(CacheConfig.getTranportPoolMaxSize(conf)); //phase 2: keep it as 5
+    poolConfig.setMinSize(CacheConfig.getTransportPoolMinSize(conf)); //phase 2: keep it as 5
     poolConfig.setDelta(1);
     poolConfig.setMaxWaitMilliseconds(CacheConfig.getTransportPoolMaxWait(conf));
     poolConfig.setScavengeIntervalMilliseconds(60000);
 
     ObjectFactory<SocketChannel> factory = new SocketChannelObjectFactory(port);
     ObjectPool<SocketChannel> pool = new ObjectPool(poolConfig, factory, LDS_POOL);
-    pool.registerHost(host, CacheConfig.getServerSocketTimeout(conf), CacheConfig.getServerConnectTimeout(conf));
+    pool.registerHost(host, CacheConfig.getClientReadTimeout(conf), 3000);
     return pool;
   }
 }
