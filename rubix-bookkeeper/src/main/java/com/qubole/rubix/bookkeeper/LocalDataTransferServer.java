@@ -45,6 +45,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -219,6 +220,9 @@ public class LocalDataTransferServer extends Configured implements Tool
       try {
         log.debug("Connected to node - " + localDataTransferClient.getLocalAddress());
 
+        RandomClose randomClose = new RandomClose(localDataTransferClient);
+        randomClose.start();
+
         while (localDataTransferClient.isConnected()) {
 
           ByteBuffer dataInfo = ByteBuffer.allocate(CacheConfig.getMaxHeaderSize(conf));
@@ -327,6 +331,43 @@ public class LocalDataTransferServer extends Configured implements Tool
       }
 
       return nread;
+    }
+
+    private class RandomClose
+            extends Thread
+    {
+      SocketChannel socketChannel;
+
+      public RandomClose(SocketChannel socketChannel)
+      {
+        this.socketChannel = socketChannel;
+      }
+
+      @Override
+      public void run()
+      {
+        while (socketChannel.isConnected()) {
+
+          try {
+            Thread.sleep(2000);
+          }
+          catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+
+          Random rand = new Random();
+          if (rand.nextInt(100) == 0) {
+            log.info("aaa: randomClose of LocalDataTransferServer: " + socketChannel);
+            try {
+              socketChannel.close();
+            }
+            catch (IOException e) {
+              e.printStackTrace();
+            }
+          }
+        }
+        return;
+      }
     }
   }
 }

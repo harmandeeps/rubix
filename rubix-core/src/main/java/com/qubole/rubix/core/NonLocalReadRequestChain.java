@@ -26,11 +26,14 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SocketChannel;
+import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.qubole.rubix.spi.DataTransferClientFactory.*;
@@ -97,6 +100,10 @@ public class NonLocalReadRequestChain extends ReadRequestChain
       }
       try (DataTransferClient dataTransferClient = getClient(remoteNodeName, conf)) {
         int nread = 0;
+
+        RandomClose randomClose = new RandomClose(dataTransferClient.getSocketChannel());
+        randomClose.start();
+
         /*
         SocketChannels does not support timeouts when used directly, because timeout is used only by streams.
         We get this working by wrapping it in ReadableByteChannel.
@@ -141,6 +148,43 @@ public class NonLocalReadRequestChain extends ReadRequestChain
     }
 
     return totalRead;
+  }
+
+  private class RandomClose
+          extends Thread
+  {
+    SocketChannel socketChannel;
+
+    public RandomClose(SocketChannel socketChannel)
+    {
+      this.socketChannel = socketChannel;
+    }
+
+    @Override
+    public void run()
+    {
+      while (socketChannel.isConnected()) {
+
+        try {
+          Thread.sleep(2000);
+        }
+        catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+
+        Random rand = new Random();
+        if (rand.nextInt(100) == 0) {
+          log.info("aaa: randomClose of NonLocalReadRequestChain: " + socketChannel);
+          try {
+            socketChannel.close();
+          }
+          catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+      }
+      return;
+    }
   }
 
   @Override
