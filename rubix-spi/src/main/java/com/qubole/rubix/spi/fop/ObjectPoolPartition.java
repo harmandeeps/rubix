@@ -22,6 +22,8 @@ import org.apache.commons.logging.LogFactory;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -41,6 +43,9 @@ public class ObjectPoolPartition<T>
   private int socketTimeout;
   private int connectTimeout;
   private final String name;
+  private AtomicInteger alive = new AtomicInteger();
+  private AtomicInteger created = new AtomicInteger();
+  private AtomicInteger destroyed = new AtomicInteger();
 
   public ObjectPoolPartition(ObjectPool<T> pool, PoolConfig config,
           ObjectFactory<T> objectFactory, BlockingQueue<Poolable<T>> queue, String host, String name)
@@ -57,6 +62,9 @@ public class ObjectPoolPartition<T>
       if (object != null) {
         objectQueue.add(new Poolable<>(object, pool, host));
         totalCount++;
+        alive.incrementAndGet();
+        created.incrementAndGet();
+        log.info(String.format("aaa: ObjectPoolPartition: Alive: %s, Created: %s, Destroyed: %s", alive.get(), created.get(), destroyed.get()));
       }
     }
   }
@@ -137,6 +145,9 @@ public class ObjectPoolPartition<T>
             objectQueue.put(poolable);
           }
           totalCount++;
+          alive.incrementAndGet();
+          created.incrementAndGet();
+          log.info(String.format("aaa: increaseObjects: Alive: %s, Created: %s, Destroyed: %s", alive.get(), created.get(), destroyed.get()));
         }
       }
 
@@ -171,6 +182,9 @@ public class ObjectPoolPartition<T>
     log.debug(this.name + " : Decreasing pool size for " + this.host + " , object: " + obj);
     objectFactory.destroy(obj.getObject());
     obj.destroy();
+    alive.decrementAndGet();
+    destroyed.incrementAndGet();
+    log.info(String.format("aaa: decreaseObject: Alive: %s, Created: %s, Destroyed: %s", alive.get(), created.get(), destroyed.get()));
     return true;
   }
 
@@ -215,6 +229,13 @@ public class ObjectPoolPartition<T>
     if (removed > 0) {
       log.debug(this.name + " : " + removed + " objects were scavenged.");
     }
+  }
+
+  public synchronized boolean validate()
+  {
+    boolean isValid = ( alive.get() == ( created.get() - destroyed.get() ) );
+    log.info(String.format("aaa: %s: Alive: %s, Created: %s, Destroyed: %s", name, alive.get(), created.get(), destroyed.get()));
+    return isValid;
   }
 
   public synchronized int shutdown()

@@ -95,7 +95,7 @@ public class SocketChannelObjectFactory
     poolConfig.setMinSize(CacheConfig.getTransportPoolMinSize(conf));
     poolConfig.setDelta(DELTA);
     poolConfig.setMaxWaitMilliseconds(CacheConfig.getTransportPoolMaxWait(conf));
-    poolConfig.setScavengeIntervalMilliseconds(SCAVENGE_INTERVAL_MILLISECONDS);
+    //poolConfig.setScavengeIntervalMilliseconds(SCAVENGE_INTERVAL_MILLISECONDS);
     poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
     poolConfig.setSocketTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
 
