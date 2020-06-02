@@ -134,7 +134,7 @@ public class BookKeeperServer extends Configured implements Tool
     try {
       TServerTransport serverTransport = new TServerSocket(
               new TServerSocket.ServerSocketTransportArgs().bindAddr(new InetSocketAddress(getBookKeeperServerPort(conf))).backlog(Integer.MAX_VALUE));
-      server = new TThreadPoolServer(new TThreadPoolServer
+      server = new BookTestTThreadPoolServer(new BookTestTThreadPoolServer
           .Args(serverTransport)
           .processor(processor)
           .maxWorkerThreads(getServerMaxThreads(conf)));

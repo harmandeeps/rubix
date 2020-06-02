@@ -38,6 +38,7 @@ public class ObjectPool<T>
   private final ConcurrentHashMap<String, ObjectPoolPartition<T>> hostToPoolMap;
   private final String name;
   private Scavenger scavenger;
+  private Validator validator;
   private volatile boolean shuttingDown;
 
   public ObjectPool(PoolConfig poolConfig, ObjectFactory<T> objectFactory, String name)
@@ -50,6 +51,8 @@ public class ObjectPool<T>
       this.scavenger = new Scavenger();
       this.scavenger.startAsync();
     }
+    this.validator = new Validator();
+    this.validator.start();
   }
 
   public void registerHost(String host)
@@ -149,4 +152,30 @@ public class ObjectPool<T>
       }
     }
   }
+
+  private class Validator
+          extends Thread
+  {
+    @Override
+    public void run()
+    {
+      log.info("aaa: Starting Validator for connection pool");
+      while (!ObjectPool.this.shuttingDown) {
+        try {
+          //log.info("aaa: Host pool map values: " + hostToPoolMap.values());
+          for (ObjectPoolPartition<T> subPool : hostToPoolMap.values()) {
+            Thread.sleep(1000);
+            //log.info("aaa: Validating sub pool of host: " + subPool.getHost());
+            boolean isValid = subPool.validate();
+            //log.info("aaa: isValid: " + isValid);
+            assert isValid : "aaa: not valid pool : " + subPool.getHost();
+          }
+        }
+        catch (InterruptedException e) {
+          log.warn("Validator failed with error", e);
+        }
+      }
+    }
+  }
+
 }
