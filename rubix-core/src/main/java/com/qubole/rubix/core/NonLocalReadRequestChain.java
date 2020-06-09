@@ -102,7 +102,7 @@ public class NonLocalReadRequestChain extends ReadRequestChain
         int nread = 0;
 
         RandomClose randomClose = new RandomClose(dataTransferClient.getSocketChannel());
-        randomClose.start();
+        randomClose.closeChannelRandomly(100);
 
         /*
         SocketChannels does not support timeouts when used directly, because timeout is used only by streams.
@@ -115,16 +115,31 @@ public class NonLocalReadRequestChain extends ReadRequestChain
         ByteBuffer buf = DataTransferClientHelper.writeHeaders(conf, new DataTransferHeader(readRequest.getActualReadStart(),
             readRequest.getActualReadLengthIntUnsafe(), fileSize, lastModified, clusterType, filePath));
 
-        dataTransferClient.getSocketChannel().write(buf);
+        try {
+          dataTransferClient.getSocketChannel().write(buf);
+        }
+        catch (IOException e) {
+          log.warn("Error in writing, closing channel so that it should be removed from queue");
+          dataTransferClient.getSocketChannel().close();
+          throw e;
+        }
         int bytesread = 0;
         ByteBuffer dst = ByteBuffer.wrap(readRequest.destBuffer, readRequest.getDestBufferOffset(), readRequest.destBuffer.length - readRequest.getDestBufferOffset());
         while (bytesread != readRequest.getActualReadLengthIntUnsafe()) {
-          nread = wrappedChannel.read(dst);
-          bytesread += nread;
-          totalRead += nread;
-          if (nread == -1) {
-            totalRead -= bytesread;
-            throw new Exception("Error reading from Local Transfer Server");
+          randomClose.closeChannelRandomly(400);
+          try {
+            nread = wrappedChannel.read(dst);
+            bytesread += nread;
+            totalRead += nread;
+            if (nread == -1) {
+              totalRead -= bytesread;
+              throw new Exception("Error reading from Local Transfer Server");
+            }
+          }
+          catch (IOException e) {
+            log.warn("Error in reading, closing channel so that it should be removed from queue");
+            dataTransferClient.getSocketChannel().close();
+            throw e;
           }
           dst.position(bytesread + readRequest.getDestBufferOffset());
         }
@@ -172,18 +187,23 @@ public class NonLocalReadRequestChain extends ReadRequestChain
           e.printStackTrace();
         }
 
-        Random rand = new Random();
-        if (rand.nextInt(100) == 0) {
-          log.info("aaa: randomClose of NonLocalReadRequestChain: " + socketChannel);
-          try {
-            socketChannel.close();
-          }
-          catch (IOException e) {
-            e.printStackTrace();
-          }
-        }
+        closeChannelRandomly(100);
       }
       return;
+    }
+
+    public void closeChannelRandomly(int max)
+    {
+      Random rand = new Random();
+      if (rand.nextInt(max) == 0) {
+        log.info("aaa: randomClose of NonLocalReadRequestChain: " + socketChannel);
+        try {
+          socketChannel.close();
+        }
+        catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
     }
   }
 

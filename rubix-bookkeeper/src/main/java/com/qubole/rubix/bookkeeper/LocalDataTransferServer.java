@@ -221,12 +221,13 @@ public class LocalDataTransferServer extends Configured implements Tool
         log.debug("Connected to node - " + localDataTransferClient.getLocalAddress());
 
         RandomClose randomClose = new RandomClose(localDataTransferClient);
-        randomClose.start();
 
         while (localDataTransferClient.isConnected()) {
 
           ByteBuffer dataInfo = ByteBuffer.allocate(CacheConfig.getMaxHeaderSize(conf));
 
+          // cluprit
+          randomClose.closeChannelRandomly(100);
           int read = localDataTransferClient.read(dataInfo);
           if (read == -1) {
             throw new Exception("Could not read data from Non-local node");
@@ -267,7 +268,7 @@ public class LocalDataTransferServer extends Configured implements Tool
               }
               blockNum++;
             }
-            int nread = readDataFromCachedFile(bookKeeperClient, remotePath, offset, readLength);
+            int nread = readDataFromCachedFile(bookKeeperClient, remotePath, offset, readLength, randomClose);
             log.info(String.format("Done reading %d from %s at offset %d and length %d for client %s", nread, remotePath, offset, readLength, localDataTransferClient.getRemoteAddress()));
           }
         }
@@ -291,7 +292,7 @@ public class LocalDataTransferServer extends Configured implements Tool
       }
     }
 
-    private int readDataFromCachedFile(RetryingPooledBookkeeperClient bookKeeperClient, String remotePath, long offset, int readLength) throws IOException, TException
+    private int readDataFromCachedFile(RetryingPooledBookkeeperClient bookKeeperClient, String remotePath, long offset, int readLength, RandomClose randomClose) throws IOException, TException
     {
       FileChannel fc = null;
       int nread = 0;
@@ -315,6 +316,7 @@ public class LocalDataTransferServer extends Configured implements Tool
           if (maxCount > lengthRemaining) {
             maxCount = lengthRemaining;
           }
+          randomClose.closeChannelRandomly(400);
           nread += fc.transferTo(position + nread, maxCount, localDataTransferClient);
           lengthRemaining = readLength - nread;
         }
@@ -355,18 +357,23 @@ public class LocalDataTransferServer extends Configured implements Tool
             e.printStackTrace();
           }
 
-          Random rand = new Random();
-          if (rand.nextInt(100) == 0) {
-            log.info("aaa: randomClose of LocalDataTransferServer: " + socketChannel);
-            try {
-              socketChannel.close();
-            }
-            catch (IOException e) {
-              e.printStackTrace();
-            }
-          }
+          closeChannelRandomly(100);
         }
         return;
+      }
+
+      public void closeChannelRandomly(int max)
+      {
+        Random rand = new Random();
+        if (rand.nextInt(max) == 0) {
+          log.info("aaa: randomClose of NonLocalReadRequestChain: " + socketChannel);
+          try {
+            socketChannel.close();
+          }
+          catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
       }
     }
   }
