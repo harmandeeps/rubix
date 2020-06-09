@@ -30,6 +30,7 @@ public class PoolConfig
   private double scavengeRatio = 0.5; // to avoid to clean up all connections in the pool at the same time
   private int connectTimeoutMilliseconds = 1000;
   private int socketTimeoutMilliseconds = 3000;
+  private int port;
 
   public int getMaxWaitMilliseconds()
   {
@@ -136,5 +137,15 @@ public class PoolConfig
   public void setSocketTimeoutMilliseconds(int socketTimeoutMilliseconds)
   {
     this.socketTimeoutMilliseconds = socketTimeoutMilliseconds;
+  }
+
+  public int getPort()
+  {
+    return port;
+  }
+
+  public void setPort(int port)
+  {
+    this.port = port;
   }
 }

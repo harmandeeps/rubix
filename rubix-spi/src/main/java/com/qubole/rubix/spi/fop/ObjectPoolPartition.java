@@ -19,6 +19,9 @@ package com.qubole.rubix.spi.fop;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -229,15 +232,27 @@ public class ObjectPoolPartition<T>
       obj = objectQueue.poll();
     }
     if (removed > 0) {
-      log.debug(this.name + " : " + removed + " objects were scavenged for host: " + this.host);
+      log.info("aaa: Scavenger: " + this.name + " : Host: " + this.host + " : " + removed + " objects were scavenged.");
     }
   }
 
   public synchronized boolean validate()
   {
-    boolean isValid = ( alive.get() == ( created.get() - destroyed.get() ) );
-    log.info(String.format("aaa: %s: Alive: %s, Created: %s, Destroyed: %s", name, alive.get(), created.get(), destroyed.get()));
-    return isValid;
+    try {
+      boolean isValid = ( alive.get() == ( created.get() - destroyed.get() ) );
+      String ipAddress = this.host.equalsIgnoreCase("localhost") ? "127.0.0.1" : this.host;
+      Process p = Runtime.getRuntime().exec(new String[]{"sh","-c", String.format("netstat -ant | grep %s:%s | grep ESTABLISHED | wc -l", ipAddress, config.getPort())},
+              null, null);
+      BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
+      String s = stdInput.readLine();
+      int aliveConnection = Integer.parseInt(s.trim());
+      log.info(String.format("aaa: Validate: %s: Host: %s: NetstatAlive: %s Alive: %s, Created: %s, Destroyed: %s", name, host, aliveConnection,alive.get(), created.get(), destroyed.get()));
+      return isValid;
+    }
+    catch (IOException e) {
+      e.printStackTrace();
+    }
+    return false;
   }
 
   public synchronized int shutdown()

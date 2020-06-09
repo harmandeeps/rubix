@@ -24,12 +24,16 @@ import org.apache.thrift.shaded.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.channels.SocketChannel;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import static com.qubole.rubix.bookkeeper.BookTestTThreadPoolServer.RandomClose.closeChannelRandomly;
 
 public class BookTestTThreadPoolServer extends TThreadPoolServer
 {
@@ -204,8 +208,7 @@ public class BookTestTThreadPoolServer extends TThreadPoolServer
         // we check stopped_ first to make sure we're not supposed to be shutting
         // down. this is necessary for graceful shutdown.
         while (true) {
-          LOGGER.info("aaa: closing client connection");
-          client_.close();
+          closeChannelRandomly(client_, 100);
           if (eventHandler != null) {
             eventHandler.processContext(connectionContext, inputTransport, outputTransport);
           }
@@ -235,6 +238,20 @@ public class BookTestTThreadPoolServer extends TThreadPoolServer
         if (client_.isOpen()) {
           client_.close();
         }
+      }
+    }
+  }
+
+  static class RandomClose
+  {
+    public static void closeChannelRandomly(TTransport tTransport, int max)
+    {
+      Random rand = new Random();
+      int random = rand.nextInt(max);
+      LOGGER.info("aaa: randomClose in closeChannelRandomly: " + random);
+      if (random == 0) {
+        LOGGER.info("aaa: randomClose of BookTestTThreadPoolServer: " + tTransport);
+        tTransport.close();
       }
     }
   }

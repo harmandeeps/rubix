@@ -96,6 +96,7 @@ public class SocketChannelObjectFactory
     poolConfig.setScavengeIntervalMilliseconds(CacheConfig.getScavengeInterval(conf));
     poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
     poolConfig.setSocketTimeoutMilliseconds(CacheConfig.getClientReadTimeout(conf));
+    poolConfig.setPort(port);
 
     ObjectFactory<SocketChannel> factory = new SocketChannelObjectFactory(port);
     ObjectPool<SocketChannel> pool = new ObjectPool(poolConfig, factory, LDS_POOL);

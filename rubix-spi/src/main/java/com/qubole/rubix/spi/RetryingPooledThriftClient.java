@@ -22,6 +22,7 @@ import org.apache.thrift.TServiceClient;
 import org.apache.thrift.transport.TTransport;
 
 import java.io.Closeable;
+import java.util.Random;
 import java.util.concurrent.Callable;
 
 public abstract class RetryingPooledThriftClient
@@ -61,6 +62,9 @@ public abstract class RetryingPooledThriftClient
     }
 
     while (errors < maxRetries) {
+
+      RandomClose.closeChannelRandomly(transportPoolable.getObject(), 100);
+
       try {
         return callable.call();
       }
@@ -91,6 +95,25 @@ public abstract class RetryingPooledThriftClient
   {
     if (transportPoolable != null) {
       transportPoolable.getPool().returnObject(transportPoolable);
+    }
+  }
+
+  public Poolable<TTransport> getTransportPoolable()
+  {
+    return transportPoolable;
+  }
+
+  static class RandomClose
+  {
+    public static void closeChannelRandomly(TTransport tTransport, int max)
+    {
+      Random rand = new Random();
+      int random = rand.nextInt(max);
+      log.info("aaa: random: " + random);
+      if (random == 0) {
+        log.info("aaa: randomClose of RetryingPooledThriftClient: " + tTransport);
+        tTransport.close();
+      }
     }
   }
 }
