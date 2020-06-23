@@ -20,9 +20,10 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
+import java.net.Socket;
 
 public class SocketObjectFactory
-    implements ObjectFactory<TSocket>
+    implements ObjectFactory<SocketObjectFactory.BookkeeperTSocket>
 {
   private static final Log log = LogFactory.getLog(SocketObjectFactory.class.getName());
   private static final String BKS_POOL = "bks-pool";
@@ -35,12 +36,12 @@ public class SocketObjectFactory
   }
 
   @Override
-  public TSocket create(String host, int socketTimeout, int connectTimeout)
+  public BookkeeperTSocket create(String host, int socketTimeout, int connectTimeout)
   {
     log.debug(BKS_POOL + " : Opening connection to host: " + host);
-    TSocket socket = null;
+    BookkeeperTSocket socket = null;
     try {
-      socket = new TSocket(host, port, socketTimeout, connectTimeout);
+      socket = new BookkeeperTSocket(host, port, socketTimeout, connectTimeout);
       socket.open();
     }
     catch (TTransportException e) {
@@ -51,7 +52,7 @@ public class SocketObjectFactory
   }
 
   @Override
-  public void destroy(TSocket o)
+  public void destroy(BookkeeperTSocket o)
   {
     // clean up and release resources
     log.debug(BKS_POOL + " : Destroy socket channel: " + o);
@@ -59,7 +60,7 @@ public class SocketObjectFactory
   }
 
   @Override
-  public boolean validate(TSocket o)
+  public boolean validate(BookkeeperTSocket o)
   {
     boolean isClosed = (o != null && !o.isOpen());
 
@@ -76,7 +77,7 @@ public class SocketObjectFactory
     return !isClosed;
   }
 
-  public static ObjectPool<TSocket> createSocketObjectPool(Configuration conf, String host, int port)
+  public static ObjectPool<BookkeeperTSocket> createSocketObjectPool(Configuration conf, String host, int port)
   {
     log.debug(BKS_POOL + " : Creating socket object pool");
     PoolConfig poolConfig = new PoolConfig();
@@ -85,12 +86,46 @@ public class SocketObjectFactory
     poolConfig.setDelta(CacheConfig.getTransportPoolDeltaSize(conf));
     poolConfig.setMaxWaitMilliseconds(CacheConfig.getTransportPoolMaxWait(conf));
     poolConfig.setScavengeIntervalMilliseconds(CacheConfig.getScavengeInterval(conf));
+    //poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getServerSocketTimeout(conf));
     poolConfig.setConnectTimeoutMilliseconds(CacheConfig.getServerConnectTimeout(conf));
     poolConfig.setSocketTimeoutMilliseconds(CacheConfig.getServerSocketTimeout(conf));
+    poolConfig.setPort(port);
 
-    ObjectFactory<TSocket> factory = new SocketObjectFactory(port);
-    ObjectPool<TSocket> pool = new ObjectPool(poolConfig, factory, BKS_POOL);
+    ObjectFactory<BookkeeperTSocket> factory = new SocketObjectFactory(port);
+    ObjectPool<BookkeeperTSocket> pool = new ObjectPool(poolConfig, factory, BKS_POOL);
     pool.registerHost(host);
     return pool;
+  }
+
+  public static class BookkeeperTSocket extends TSocket {
+
+    public BookkeeperTSocket(Socket socket)
+            throws TTransportException
+    {
+      super(socket);
+    }
+
+    public BookkeeperTSocket(String host, int port)
+    {
+      super(host, port);
+    }
+
+    public BookkeeperTSocket(String host, int port, int timeout)
+    {
+      super(host, port, timeout);
+    }
+
+    public BookkeeperTSocket(String host, int port, int socketTimeout, int connectTimeout)
+    {
+      super(host, port, socketTimeout, connectTimeout);
+    }
+
+    /**
+     * Closes the socket.
+     */
+    public void close() {
+      log.info("bts: closing tsocket: " + this);
+      super.close();
+    }
   }
 }

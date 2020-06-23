@@ -44,7 +44,7 @@ public class HeartbeatService extends AbstractScheduledService
   private final ScheduledExecutorService validatorExecutor = Executors.newSingleThreadScheduledExecutor();
 
   // The client for interacting with the master BookKeeper.
-  private final RetryingPooledBookkeeperClient bookkeeperClient;
+  private RetryingPooledBookkeeperClient bookkeeperClient;
 
   // The initial delay for sending heartbeats.
   private final int heartbeatInitialDelay;
@@ -63,6 +63,7 @@ public class HeartbeatService extends AbstractScheduledService
 
   private FileValidator fileValidator;
   private CachingValidator cachingValidator;
+  private BookKeeperFactory bookKeeperFactory;
 
   public HeartbeatService(Configuration conf, MetricRegistry metrics, BookKeeperFactory bookKeeperFactory, BookKeeper bookKeeper)
   {
@@ -71,6 +72,7 @@ public class HeartbeatService extends AbstractScheduledService
     this.heartbeatInitialDelay = CacheConfig.getHeartbeatInitialDelay(conf);
     this.heartbeatInterval = CacheConfig.getHeartbeatInterval(conf);
     this.masterHostname = ClusterUtil.getMasterHostname(conf);
+    this.bookKeeperFactory = bookKeeperFactory;
     this.bookkeeperClient = initializeClientWithRetry(bookKeeperFactory);
 
     if (CacheConfig.isValidationEnabled(conf)) {
@@ -154,9 +156,15 @@ public class HeartbeatService extends AbstractScheduledService
       bookkeeperClient.handleHeartbeat(InetAddress.getLocalHost().getCanonicalHostName(), status);
     }
     catch (IOException e) {
+      bookkeeperClient.close();
+      log.info("aaa: hb: bookkeeper client failed reinitialize");
+      bookkeeperClient = initializeClientWithRetry(this.bookKeeperFactory);
       log.error("Could not send heartbeat", e);
     }
     catch (TException te) {
+      bookkeeperClient.close();
+      log.info("aaa: hb: bookkeeper client failed reinitialize");
+      bookkeeperClient = initializeClientWithRetry(this.bookKeeperFactory);
       log.error(String.format("Could not connect to master node [%s]; will reattempt on next heartbeat", masterHostname));
     }
   }

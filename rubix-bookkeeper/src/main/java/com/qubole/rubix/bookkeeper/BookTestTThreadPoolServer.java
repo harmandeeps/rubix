@@ -208,7 +208,7 @@ public class BookTestTThreadPoolServer extends TThreadPoolServer
         // we check stopped_ first to make sure we're not supposed to be shutting
         // down. this is necessary for graceful shutdown.
         while (true) {
-          closeChannelRandomly(client_, 100);
+          //closeChannelRandomly(client_, 100);
           if (eventHandler != null) {
             eventHandler.processContext(connectionContext, inputTransport, outputTransport);
           }
@@ -218,14 +218,17 @@ public class BookTestTThreadPoolServer extends TThreadPoolServer
           }
         }
       } catch (TSaslTransportException ttx) {
+        LOGGER.error("bttps: TSaslTransportException", ttx);
         // Something thats not SASL was in the stream, continue silently
       } catch (TTransportException ttx) {
+        LOGGER.error("bttps: TTransportException", ttx);
         // Assume the client died and continue silently
       } catch (TException tx) {
-        LOGGER.error("Thrift error occurred during processing of message.", tx);
+        LOGGER.error("bttps: TException", tx);
       } catch (Exception x) {
-        LOGGER.error("Error occurred during processing of message.", x);
+        LOGGER.error("bttps: Error occurred during processing of message.", x);
       } finally {
+        LOGGER.error("bttps: finally closing everything: " + client_);
         if (eventHandler != null) {
           eventHandler.deleteContext(connectionContext, inputProtocol, outputProtocol);
         }

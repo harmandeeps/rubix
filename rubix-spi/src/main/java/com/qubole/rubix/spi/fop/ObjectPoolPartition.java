@@ -16,8 +16,13 @@
  */
 package com.qubole.rubix.spi.fop;
 
+import com.qubole.rubix.spi.thrift.BookKeeperService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.thrift.TException;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransport;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -246,12 +251,25 @@ public class ObjectPoolPartition<T>
       BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
       String s = stdInput.readLine();
       int aliveConnection = Integer.parseInt(s.trim());
-      log.info(String.format("aaa: Validate: %s: Host: %s: NetstatAlive: %s Alive: %s, Created: %s, Destroyed: %s", name, host, aliveConnection,alive.get(), created.get(), destroyed.get()));
+      log.info(String.format("aaa: Validate: %s: Host: %s: NetstatAlive: %s Alive: %s, Created: %s, Destroyed: %s, In Queue: %s",
+              name, host, aliveConnection,alive.get(), created.get(), destroyed.get(), objectQueue.size()));
       return isValid;
     }
     catch (IOException e) {
       e.printStackTrace();
     }
+
+    for(Poolable<T> poolable : objectQueue)
+    {
+      try {
+        new BookKeeperService.Client(new TBinaryProtocol((TTransport) poolable.getObject())).send_isBookKeeperAlive();
+      }
+      catch (TException e) {
+        log.info("aaa: not valid connection remove: " + poolable.getObject());
+        decreaseObject(poolable);
+      }
+    }
+
     return false;
   }
 
