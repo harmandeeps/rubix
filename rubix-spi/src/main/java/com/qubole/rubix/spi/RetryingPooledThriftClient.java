@@ -103,9 +103,10 @@ public abstract class RetryingPooledThriftClient
   @Override
   public void close()
   {
-    log.info("aaa: rptc: in close: " + transportPoolable);
+    if (transportPoolable == null) {
+      log.info("aaa: rptc: in close is null for object: " + transportPoolable.getObject());
+    }
     if (transportPoolable != null) {
-      log.info("aaa: rptc: in close, transportPoolable is not null: " + transportPoolable.getObject());
       transportPoolable.getPool().returnObject(transportPoolable);
     }
   }

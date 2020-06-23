@@ -27,6 +27,10 @@ import org.apache.thrift.transport.TTransport;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +49,7 @@ public class ObjectPoolPartition<T>
   private final ObjectPool<T> pool;
   private final PoolConfig config;
   private final BlockingQueue<Poolable<T>> objectQueue;
+  private final List<Poolable<T>> allObjects;
   private final ObjectFactory<T> objectFactory;
   private int totalCount;
   private final String host;
@@ -67,16 +72,41 @@ public class ObjectPoolPartition<T>
     this.socketTimeout = config.getSocketTimeoutMilliseconds();
     this.connectTimeout = config.getConnectTimeoutMilliseconds();
     this.totalCount = 0;
+    allObjects = new ArrayList<>();
     for (int i = 0; i < config.getMinSize(); i++) {
       T object = objectFactory.create(host, socketTimeout, connectTimeout);
       if (object != null) {
-        objectQueue.add(new Poolable<>(object, pool, host));
+        Poolable poolable = new Poolable<>(object, pool, host);
+        objectQueue.add(poolable);
+        allObjects.add(poolable);
         totalCount++;
         alive.incrementAndGet();
         created.incrementAndGet();
         log.info(String.format("aaa: ObjectPoolPartition: Alive: %s, Created: %s, Destroyed: %s", alive.get(), created.get(), destroyed.get()));
       }
     }
+/*    new Thread(new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        while (true) {
+          try {
+            Thread.sleep(30000);
+          }
+          catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+          StringBuilder debugInfo = new StringBuilder();
+          debugInfo.append("DebugInfo for host " + host + "\n");
+          int c = 1;
+          for (Poolable obj : allObjects) {
+            debugInfo.append("ObjectNum" + (c++) + " object: " + obj + " ownerTrace: \n" + obj.getOwnerTrace() + "\n");
+          }
+          log.info(debugInfo.toString());
+        }
+      }
+    }).start();*/
   }
 
   public void returnObject(Poolable<T> object)
@@ -90,6 +120,7 @@ public class ObjectPoolPartition<T>
     }
 
     log.debug(String.format("%s : Returning object %s to queue of host %s. Queue size: %d", this.name, object, object.getHost(), objectQueue.size()));
+    object.setOwnerTrace("FREE");
     if (!objectQueue.offer(object)) {
       log.warn(this.name + " : Created more objects than configured. Created=" + totalCount + " QueueSize=" + objectQueue.size());
       decreaseObject(object);
@@ -117,12 +148,18 @@ public class ObjectPoolPartition<T>
     try {
       if (blocking) {
         freeObject = objectQueue.take();
+        StringWriter sw = new StringWriter();
+        new Throwable("").printStackTrace(new PrintWriter(sw));
+        freeObject.setOwnerTrace(sw.toString());
       }
       else {
         freeObject = objectQueue.poll(config.getMaxWaitMilliseconds(), TimeUnit.MILLISECONDS);
         if (freeObject == null) {
           throw new RuntimeException("Cannot get a free object from the pool");
         }
+        StringWriter sw = new StringWriter();
+        new Throwable("").printStackTrace(new PrintWriter(sw));
+        freeObject.setOwnerTrace(sw.toString());
       }
     }
     catch (InterruptedException e) {
@@ -154,6 +191,7 @@ public class ObjectPoolPartition<T>
           else {
             objectQueue.put(poolable);
           }
+          allObjects.add(poolable);
           totalCount++;
           alive.incrementAndGet();
           created.incrementAndGet();
@@ -189,6 +227,7 @@ public class ObjectPoolPartition<T>
             "Call to free object of wrong partition, current partition=%s requested partition = %s",
             this.host, obj.getHost());
     objectRemoved();
+    allObjects.remove(obj);
     log.debug(this.name + " : Decreasing pool size for " + this.host + " , object: " + obj);
     objectFactory.destroy(obj.getObject());
     obj.destroy();
@@ -243,8 +282,8 @@ public class ObjectPoolPartition<T>
 
   public synchronized boolean validate()
   {
+    boolean isValid = ( alive.get() == ( created.get() - destroyed.get() ) );
     try {
-      boolean isValid = ( alive.get() == ( created.get() - destroyed.get() ) );
       String ipAddress = this.host.equalsIgnoreCase("localhost") ? "127.0.0.1" : this.host;
       Process p = Runtime.getRuntime().exec(new String[]{"sh","-c", String.format("netstat -ant | grep %s:%s | grep ESTABLISHED | wc -l", ipAddress, config.getPort())},
               null, null);
@@ -253,13 +292,22 @@ public class ObjectPoolPartition<T>
       int aliveConnection = Integer.parseInt(s.trim());
       log.info(String.format("aaa: Validate: %s: Host: %s: NetstatAlive: %s Alive: %s, Created: %s, Destroyed: %s, In Queue: %s",
               name, host, aliveConnection,alive.get(), created.get(), destroyed.get(), objectQueue.size()));
-      return isValid;
     }
     catch (IOException e) {
       e.printStackTrace();
     }
 
-    for(Poolable<T> poolable : objectQueue)
+    log.info("aaa: object: start\n\n\n");
+    StringBuilder debugInfo = new StringBuilder();
+    debugInfo.append("aaa: object: " + name + " DebugInfo for host: " + host + "\n");
+    int c = 1;
+    for (Poolable obj : allObjects) {
+      log.info("aaa: object: " + name + " host: " + host + "ObjectNum: " + (c++) + " object: " + obj + " ownerTrace: \n" + obj.getOwnerTrace());
+    }
+    //log.info("aaa: allObjects: " + debugInfo.toString());
+    log.info("aaa: object: end\n\n\n");
+
+/*    for(Poolable<T> poolable : objectQueue)
     {
       try {
         new BookKeeperService.Client(new TBinaryProtocol((TTransport) poolable.getObject())).send_isBookKeeperAlive();
@@ -268,9 +316,8 @@ public class ObjectPoolPartition<T>
         log.info("aaa: not valid connection remove: " + poolable.getObject());
         decreaseObject(poolable);
       }
-    }
-
-    return false;
+    }*/
+    return isValid;
   }
 
   public synchronized int shutdown()

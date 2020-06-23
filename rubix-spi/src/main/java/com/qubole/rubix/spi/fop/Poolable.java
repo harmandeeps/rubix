@@ -27,6 +27,7 @@ public class Poolable<T>
   private ObjectPool<T> pool;
   private String host;
   private long lastAccessTs;
+  private String ownerTrace;
 
   public Poolable(T t, ObjectPool<T> pool, String host)
   {
@@ -34,6 +35,7 @@ public class Poolable<T>
     this.pool = pool;
     this.host = host;
     this.lastAccessTs = System.currentTimeMillis();
+    this.ownerTrace = "FREE";
   }
 
   public T getObject()
@@ -54,6 +56,7 @@ public class Poolable<T>
   public void returnObject()
   {
     pool.returnObject(this);
+    this.ownerTrace = "FREE";
   }
 
   public long getLastAccessTs()
@@ -80,5 +83,15 @@ public class Poolable<T>
   public void close()
   {
     this.returnObject();
+  }
+
+  public void setOwnerTrace(String trace)
+  {
+    this.ownerTrace = trace;
+  }
+
+  public String getOwnerTrace()
+  {
+    return ownerTrace;
   }
 }
