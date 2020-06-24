@@ -51,8 +51,10 @@ public class ObjectPool<T>
       this.scavenger = new Scavenger();
       this.scavenger.startAsync();
     }
-    this.validator = new Validator();
-    this.validator.start();
+    if (name.equalsIgnoreCase("bks-pool")) {
+      this.validator = new Validator();
+      this.validator.start();
+    }
   }
 
   public void registerHost(String host)
@@ -74,7 +76,9 @@ public class ObjectPool<T>
         }
       }
     }
-    log.debug(this.name + " : Borrowing object for partition: " + host);
+    if (!host.equalsIgnoreCase("localhost") && !name.equalsIgnoreCase("lds-pool")) {
+      log.info(this.name + " : Borrowing object for partition: " + host);
+    }
     for (int i = 0; i < 3; i++) { // try at most three times
       Poolable<T> result = getObject(false, host);
       if (factory.validate(result.getObject())) {
@@ -89,12 +93,18 @@ public class ObjectPool<T>
 
   private Poolable<T> getObject(boolean blocking, String host)
   {
+    if (!host.equalsIgnoreCase("localhost") && !name.equalsIgnoreCase("lds-pool")) {
+      log.info(this.name + " : getObject for partition: " + host);
+    }
     ObjectPoolPartition<T> subPool = this.hostToPoolMap.get(host);
     return subPool.getObject(blocking);
   }
 
   public void returnObject(Poolable<T> obj)
   {
+    if (!obj.getHost().equalsIgnoreCase("localhost") && !name.equalsIgnoreCase("lds-pool")) {
+      log.info(this.name + " : returnObject for partition: " + obj.getHost());
+    }
     ObjectPoolPartition<T> subPool = this.hostToPoolMap.get(obj.getHost());
     subPool.returnObject(obj);
   }

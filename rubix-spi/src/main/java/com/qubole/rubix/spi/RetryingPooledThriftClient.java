@@ -74,7 +74,7 @@ public abstract class RetryingPooledThriftClient
 
         if (e instanceof TException)
         {
-          log.warn("rptc: closing socket so that it wont be added back to the pool TTransportException: " + e);
+          log.warn(host + " rptc: closing socket so that it wont be added back to the pool TTransportException: " + e);
           transportPoolable.getObject().close();
           transportPoolable.getPool().returnObject(transportPoolable);
         }
@@ -84,7 +84,7 @@ public abstract class RetryingPooledThriftClient
         // Get a reference to objectPool before it is destroyed in returnObject
         ObjectPool<TTransport> objectPool = transportPoolable.getPool();
         if (transportPoolable.getObject().isOpen()) {
-          log.warn("rptc: Transport is open lets return it back to the pool");
+          log.warn(host + " rptc: Transport is open lets return it back to the pool");
           // Close connection and submit back so that ObjectPool to handle decommissioning
           client.getInputProtocol().getTransport().close();
           transportPoolable.getPool().returnObject(transportPoolable);
@@ -103,9 +103,11 @@ public abstract class RetryingPooledThriftClient
   @Override
   public void close()
   {
-    log.info("aaa: rptc: in close: " + transportPoolable);
+    if (transportPoolable == null ) {
+      log.info(host + " aaa: rptc: in close is null: " + transportPoolable);
+    }
     if (transportPoolable != null) {
-      log.info("aaa: rptc: in close, transportPoolable is not null: " + transportPoolable.getObject());
+      //log.info("aaa: rptc: in close, transportPoolable is not null: " + transportPoolable.getObject());
       transportPoolable.getPool().returnObject(transportPoolable);
     }
   }

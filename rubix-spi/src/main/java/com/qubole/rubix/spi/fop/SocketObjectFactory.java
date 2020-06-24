@@ -27,7 +27,7 @@ public class SocketObjectFactory
 {
   private static final Log log = LogFactory.getLog(SocketObjectFactory.class.getName());
   private static final String BKS_POOL = "bks-pool";
-
+  private String host;
   private final int port;
 
   public SocketObjectFactory(int port)
@@ -38,7 +38,10 @@ public class SocketObjectFactory
   @Override
   public BookkeeperTSocket create(String host, int socketTimeout, int connectTimeout)
   {
-    log.debug(BKS_POOL + " : Opening connection to host: " + host);
+    this.host = host;
+    if (!host.equalsIgnoreCase("localhost")) {
+      log.info(BKS_POOL + " : Opening connection to host: " + host);
+    }
     BookkeeperTSocket socket = null;
     try {
       socket = new BookkeeperTSocket(host, port, socketTimeout, connectTimeout);
@@ -55,7 +58,9 @@ public class SocketObjectFactory
   public void destroy(BookkeeperTSocket o)
   {
     // clean up and release resources
-    log.debug(BKS_POOL + " : Destroy socket channel: " + o);
+    if (!host.equalsIgnoreCase("localhost")) {
+      log.info(BKS_POOL + " : Destroy socket channel: " + o + " for host: " + host);
+    }
     o.close();
   }
 
@@ -73,13 +78,16 @@ public class SocketObjectFactory
         // Let os time it out
       }
     }
-    log.debug(BKS_POOL + " : Validate socket channel: " + o + " isvalid: " + !isClosed);
+
+    if (!host.equalsIgnoreCase("localhost")) {
+      log.info(BKS_POOL + " : Validate socket channel: for host: " + host + " socket channel: " + o + " isvalid: " + !isClosed);
+    }
     return !isClosed;
   }
 
   public static ObjectPool<BookkeeperTSocket> createSocketObjectPool(Configuration conf, String host, int port)
   {
-    log.debug(BKS_POOL + " : Creating socket object pool");
+    log.info(BKS_POOL + " : Creating socket object pool");
     PoolConfig poolConfig = new PoolConfig();
     poolConfig.setMaxSize(CacheConfig.getTranportPoolMaxSize(conf));
     poolConfig.setMinSize(CacheConfig.getTransportPoolMinSize(conf));

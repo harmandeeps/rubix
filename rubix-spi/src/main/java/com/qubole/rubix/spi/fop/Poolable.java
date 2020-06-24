@@ -27,6 +27,7 @@ public class Poolable<T>
   private ObjectPool<T> pool;
   private String host;
   private long lastAccessTs;
+  private int number;
 
   public Poolable(T t, ObjectPool<T> pool, String host)
   {
@@ -34,6 +35,15 @@ public class Poolable<T>
     this.pool = pool;
     this.host = host;
     this.lastAccessTs = System.currentTimeMillis();
+  }
+
+  public Poolable(T t, ObjectPool<T> pool, String host, int number)
+  {
+    this.object = t;
+    this.pool = pool;
+    this.host = host;
+    this.lastAccessTs = System.currentTimeMillis();
+    this.number = number;
   }
 
   public T getObject()
@@ -80,5 +90,10 @@ public class Poolable<T>
   public void close()
   {
     this.returnObject();
+  }
+
+  public int getNumber()
+  {
+    return number;
   }
 }
